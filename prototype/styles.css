@@ -1,0 +1,76 @@
+body {
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f4f9ff;
+  margin: 0;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1 {
+  margin-bottom: 4px;
+}
+
+.pet-panel {
+  display: flex;
+  gap: 12px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+#taskList {
+  list-style: none;
+  padding: 0;
+}
+
+.task-item {
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #4f8cff;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #b9c8e5;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reset-btn {
+  background: #ff8b3d;
+}
+
+#message {
+  margin: 0;
+  min-height: 20px;
+  font-size: 14px;
+}
+
+.parent-note {
+  margin-top: 16px;
+  background: #fff7d6;
+  padding: 10px;
+  border-radius: 8px;
+}

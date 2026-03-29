@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>电子宠物原型</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>🐣 我的电子宠物</h1>
+        <p>完成任务让宠物变开心！</p>
+      </header>
+
+      <section class="pet-panel">
+        <div id="petMood">心情：--</div>
+        <div id="petStars">星星：--</div>
+      </section>
+
+      <section>
+        <h2>今日任务</h2>
+        <ul id="taskList"></ul>
+      </section>
+
+      <section class="actions">
+        <button id="resetBtn" class="reset-btn" type="button">重置体验</button>
+        <p id="message" aria-live="polite"></p>
+      </section>
+
+      <section class="parent-note">
+        <strong>家长模式提示：</strong>
+        <span>后续可接入 `/parent` 页面配置任务规则。</span>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
