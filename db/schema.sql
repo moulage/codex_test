@@ -1,100 +1,113 @@
--- 电子宠物（儿童习惯养成）数据库结构 - PostgreSQL
+-- 电子宠物（儿童习惯养成）数据库结构 - MySQL 8+
 
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
-CREATE TYPE user_role AS ENUM ('parent', 'child');
-CREATE TYPE task_category AS ENUM ('life', 'learning');
-CREATE TYPE reward_type AS ENUM ('stars', 'item', 'animation');
-
-CREATE TABLE families (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_name TEXT NOT NULL,
-  timezone TEXT NOT NULL DEFAULT 'Asia/Shanghai',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS accounts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(64) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  display_name VARCHAR(64) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_accounts_username (username)
 );
 
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  role user_role NOT NULL,
-  display_name TEXT NOT NULL,
-  birth_date DATE,
-  pin_hash TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS account_sessions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  account_id BIGINT UNSIGNED NOT NULL,
+  session_token VARCHAR(128) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NOT NULL,
+  UNIQUE KEY uniq_account_session_token (session_token),
+  CONSTRAINT fk_account_sessions_account FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
 );
 
-CREATE TABLE pets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL UNIQUE REFERENCES families(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  mood SMALLINT NOT NULL DEFAULT 50 CHECK (mood BETWEEN 0 AND 100),
-  health SMALLINT NOT NULL DEFAULT 50 CHECK (health BETWEEN 0 AND 100),
-  wisdom SMALLINT NOT NULL DEFAULT 50 CHECK (wisdom BETWEEN 0 AND 100),
-  hygiene SMALLINT NOT NULL DEFAULT 50 CHECK (hygiene BETWEEN 0 AND 100),
-  level INT NOT NULL DEFAULT 1,
-  stars_balance INT NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS pet_groups (
+  pet_code VARCHAR(32) PRIMARY KEY,
+  display_name VARCHAR(64) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE task_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  category task_category NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT,
-  difficulty SMALLINT NOT NULL DEFAULT 1 CHECK (difficulty BETWEEN 1 AND 5),
-  estimated_minutes SMALLINT NOT NULL DEFAULT 5 CHECK (estimated_minutes BETWEEN 1 AND 60),
-  active BOOLEAN NOT NULL DEFAULT TRUE,
-  created_by UUID REFERENCES users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS pet_assets (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  pet_code VARCHAR(32) NOT NULL,
+  level_no TINYINT NOT NULL,
+  score_min INT NOT NULL,
+  score_max INT NULL,
+  image_path VARCHAR(255) NOT NULL,
+  image_format VARCHAR(16) NOT NULL DEFAULT 'webp',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_pet_level (pet_code, level_no),
+  CONSTRAINT fk_pet_assets_group FOREIGN KEY (pet_code) REFERENCES pet_groups (pet_code) ON DELETE CASCADE
 );
 
-CREATE TABLE daily_tasks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  child_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  task_template_id UUID NOT NULL REFERENCES task_templates(id) ON DELETE RESTRICT,
-  task_date DATE NOT NULL,
-  status TEXT NOT NULL DEFAULT 'assigned' CHECK (status IN ('assigned', 'started', 'completed', 'skipped')),
-  assigned_stars SMALLINT NOT NULL DEFAULT 5,
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  UNIQUE(child_id, task_template_id, task_date)
+CREATE TABLE IF NOT EXISTS ui_assets (
+  asset_key VARCHAR(64) PRIMARY KEY,
+  asset_group VARCHAR(32) NOT NULL,
+  display_name VARCHAR(64) NOT NULL,
+  image_path VARCHAR(255) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE checkins (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  daily_task_id UUID NOT NULL UNIQUE REFERENCES daily_tasks(id) ON DELETE CASCADE,
-  child_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  proof_type TEXT NOT NULL DEFAULT 'manual' CHECK (proof_type IN ('manual', 'photo', 'voice')),
-  notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  account_id BIGINT UNSIGNED NOT NULL,
+  display_name VARCHAR(64) NOT NULL,
+  pet_name VARCHAR(64) NOT NULL DEFAULT '',
+  starter_pet_code VARCHAR(32) NOT NULL,
+  current_pet_code VARCHAR(32) NOT NULL,
+  current_pet_order INT NOT NULL DEFAULT 1,
+  current_pet_score INT NOT NULL DEFAULT 0,
+  mood INT NOT NULL DEFAULT 0,
+  stars INT NOT NULL DEFAULT 0,
+  total_completed INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_users_account FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
+  CONSTRAINT fk_users_starter_pet FOREIGN KEY (starter_pet_code) REFERENCES pet_groups (pet_code),
+  CONSTRAINT fk_users_current_pet FOREIGN KEY (current_pet_code) REFERENCES pet_groups (pet_code)
 );
 
-CREATE TABLE reward_ledger (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-  child_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  source_daily_task_id UUID REFERENCES daily_tasks(id) ON DELETE SET NULL,
-  reward reward_type NOT NULL,
-  stars_delta INT NOT NULL DEFAULT 0,
-  item_code TEXT,
-  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS user_pet_collection (
+  user_id BIGINT UNSIGNED NOT NULL,
+  pet_code VARCHAR(32) NOT NULL,
+  pet_order INT NOT NULL,
+  best_level TINYINT NOT NULL DEFAULT 1,
+  best_score INT NOT NULL DEFAULT 0,
+  is_current TINYINT(1) NOT NULL DEFAULT 0,
+  is_max_level TINYINT(1) NOT NULL DEFAULT 0,
+  unlocked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, pet_code),
+  CONSTRAINT fk_collection_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_collection_pet FOREIGN KEY (pet_code) REFERENCES pet_groups (pet_code) ON DELETE CASCADE
 );
 
-CREATE TABLE streaks (
-  child_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  current_streak INT NOT NULL DEFAULT 0,
-  best_streak INT NOT NULL DEFAULT 0,
-  last_completed_date DATE
+CREATE TABLE IF NOT EXISTS task_definitions (
+  id VARCHAR(64) PRIMARY KEY,
+  account_id BIGINT UNSIGNED NOT NULL,
+  group_name VARCHAR(32) NOT NULL,
+  title VARCHAR(20) NOT NULL,
+  goal TINYINT NOT NULL DEFAULT 1,
+  reward_stars INT NOT NULL DEFAULT 1,
+  reward_mood INT NOT NULL DEFAULT 1,
+  reward_pet_score INT NOT NULL DEFAULT 10,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_task_definitions_account FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_users_family_id ON users(family_id);
-CREATE INDEX idx_task_templates_family_active ON task_templates(family_id, active);
-CREATE INDEX idx_daily_tasks_child_date ON daily_tasks(child_id, task_date);
-CREATE INDEX idx_reward_ledger_child_created_at ON reward_ledger(child_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS user_task_progress (
+  user_id BIGINT UNSIGNED NOT NULL,
+  task_id VARCHAR(64) NOT NULL,
+  progress_date DATE NOT NULL,
+  completed_count TINYINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, task_id),
+  CONSTRAINT fk_progress_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_progress_task FOREIGN KEY (task_id) REFERENCES task_definitions (id) ON DELETE CASCADE
+);

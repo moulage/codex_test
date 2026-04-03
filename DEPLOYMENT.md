@@ -1,0 +1,126 @@
+# 线上部署说明
+
+目标域名：`eand.cn`
+
+## 已补充的项目配置
+
+- 服务支持通过 `HOST` 绑定外网监听，默认 `0.0.0.0`
+- 服务支持 `PUBLIC_BASE_URL`，线上可设置为 `https://eand.cn`
+- 新增健康检查接口：`/healthz` 和 `/api/healthz`
+- 提供 Nginx 反向代理配置：`deploy/eand.cn.nginx.conf`
+- 提供 systemd 服务配置：`deploy/virtual-pet.service`
+- 提供环境变量模板：`.env.example`
+
+## 服务器推荐目录
+
+```bash
+/var/www/virtual-pet
+```
+
+## 1. 上传代码并安装 Node.js / MySQL / Nginx
+
+要求：
+
+- Node.js 18+
+- MySQL 8+
+- Nginx
+- 已解析域名 `eand.cn` 和 `www.eand.cn` 到服务器公网 IP
+
+## 2. 准备环境变量
+
+在服务器项目目录创建 `.env`：
+
+```bash
+NODE_ENV=production
+HOST=0.0.0.0
+PORT=5173
+PUBLIC_BASE_URL=https://eand.cn
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=你的数据库密码
+DB_NAME=virtual_pet
+```
+
+说明：
+
+- 应用启动时会自动创建数据库 `virtual_pet`
+- 也会自动执行 `db/schema.sql`
+
+## 3. 安装依赖并启动应用
+
+```bash
+npm install --production
+node server.js
+```
+
+本地验证：
+
+```bash
+curl http://127.0.0.1:5173/healthz
+```
+
+## 4. 配置 systemd 常驻运行
+
+复制 `deploy/virtual-pet.service` 到：
+
+```bash
+/etc/systemd/system/virtual-pet.service
+```
+
+按实际路径修改三处：
+
+- `WorkingDirectory=/var/www/virtual-pet`
+- `EnvironmentFile=/var/www/virtual-pet/.env`
+- `ExecStart=/usr/bin/node /var/www/virtual-pet/server.js`
+
+然后执行：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable virtual-pet
+sudo systemctl start virtual-pet
+sudo systemctl status virtual-pet
+```
+
+## 5. 配置 Nginx
+
+复制 `deploy/eand.cn.nginx.conf` 到：
+
+```bash
+/etc/nginx/conf.d/eand.cn.conf
+```
+
+检查并重载：
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## 6. 申请 HTTPS 证书
+
+如果服务器已安装 Certbot：
+
+```bash
+sudo certbot --nginx -d eand.cn -d www.eand.cn
+```
+
+完成后访问：
+
+```bash
+https://eand.cn
+```
+
+## 7. 排查命令
+
+```bash
+curl -I http://127.0.0.1:5173/healthz
+curl -I http://eand.cn
+curl -I https://eand.cn
+sudo journalctl -u virtual-pet -n 200 --no-pager
+```
+
+## 当前限制
+
+我已经把项目内的线上部署配置补齐，但当前工作区无法直接替你登录服务器、改 DNS、签发证书或验证公网访问结果。要真正让 `eand.cn` 可访问，还需要在你的 Linux 服务器上执行上述部署步骤。

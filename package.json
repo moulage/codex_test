@@ -2,7 +2,12 @@
   "name": "virtual-pet-prototype",
   "version": "0.1.0",
   "private": true,
+  "dependencies": {
+    "mysql2": "^3.15.2"
+  },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:prod": "NODE_ENV=production node server.js",
+    "check": "node --check server.js"
   }
 }

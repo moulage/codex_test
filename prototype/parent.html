@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>家长模式</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="parent-body">
+    <main class="parent-shell">
+      <header class="parent-topbar">
+        <div>
+          <p class="eyebrow">家长模式</p>
+          <h1>设置任务和用户</h1>
+          <p class="hero-text">可分别维护任务、用户和每个用户的起始宠物。保存后会按新配置重建用户成长档案。</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="parent-link" href="/">返回首页</a>
+          <button id="logoutBtn" class="secondary-btn" type="button">退出账号</button>
+        </div>
+      </header>
+
+      <section class="parent-card">
+        <section class="editor-card">
+          <div class="editor-head">
+            <h2>用户与起始宠物</h2>
+            <button id="addUserBtn" class="secondary-btn" type="button">新增用户</button>
+          </div>
+          <p class="hero-text">每个用户都可以单独设置用户名称、宠物名字和起始宠物。</p>
+          <div id="userList" class="editor-list"></div>
+        </section>
+
+        <div class="parent-grid">
+          <section class="editor-card">
+            <div class="editor-head">
+              <h2>日常行为习惯</h2>
+              <button id="addHabitBtn" class="secondary-btn" type="button">新增任务</button>
+            </div>
+            <div id="habitList" class="editor-list"></div>
+          </section>
+
+          <section class="editor-card">
+            <div class="editor-head">
+              <h2>学习</h2>
+              <button id="addStudyBtn" class="secondary-btn" type="button">新增任务</button>
+            </div>
+            <div id="studyList" class="editor-list"></div>
+          </section>
+
+          <section class="editor-card">
+            <div class="editor-head">
+              <h2>运动</h2>
+              <button id="addExerciseBtn" class="secondary-btn" type="button">新增任务</button>
+            </div>
+            <div id="exerciseList" class="editor-list"></div>
+          </section>
+        </div>
+
+        <div class="parent-actions">
+          <button id="saveBtn" type="button">保存全部配置</button>
+          <p id="parentMessage" class="message" aria-live="polite"></p>
+        </div>
+      </section>
+    </main>
+
+    <script src="./auth.js"></script>
+    <script src="./parent.js"></script>
+  </body>
+</html>

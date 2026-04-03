@@ -1,0 +1,17 @@
+[Unit]
+Description=Virtual Pet Prototype
+After=network.target mysql.service
+Wants=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/virtual-pet
+EnvironmentFile=/var/www/virtual-pet/.env
+ExecStart=/usr/bin/node /var/www/virtual-pet/server.js
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target
