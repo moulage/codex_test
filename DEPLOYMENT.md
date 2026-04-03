@@ -187,6 +187,31 @@ curl -I https://eand.cn
 sudo journalctl -u virtual-pet -n 200 --no-pager
 ```
 
+## 9. 代码更新后重新发布
+
+项目内提供了一个最简重发脚本：
+
+```bash
+chmod +x deploy/redeploy.sh
+bash deploy/redeploy.sh
+```
+
+脚本会自动执行：
+
+- 检查工作区是否干净
+- `git pull --no-rebase`
+- `npm install --production`
+- `npm run check`
+- 重启 `virtual-pet`
+- 检查并重载 Nginx
+- 验证 `http://127.0.0.1:5173/healthz`
+
+如果你要指定分支，例如 `main`：
+
+```bash
+BRANCH=main bash deploy/redeploy.sh
+```
+
 ## 当前限制
 
 我已经把项目内的线上部署配置补齐，但当前工作区无法直接替你登录服务器、改 DNS、签发证书或验证公网访问结果。要真正让 `eand.cn` 可访问，还需要在你的 Linux 服务器上执行上述部署步骤。
