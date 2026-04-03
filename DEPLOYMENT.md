@@ -9,6 +9,7 @@
 - 新增健康检查接口：`/healthz` 和 `/api/healthz`
 - 提供 Nginx 反向代理配置：`deploy/eand.cn.nginx.conf`
 - 提供 systemd 服务配置：`deploy/virtual-pet.service`
+- 提供一键安装脚本：`deploy/install_server.sh`
 - 提供环境变量模板：`.env.example`
 
 ## 服务器推荐目录
@@ -72,7 +73,37 @@ node server.js
 curl http://127.0.0.1:5173/healthz
 ```
 
-## 4. 配置 systemd 常驻运行
+## 4. 一键写入 .env / systemd / Nginx
+
+如果你已经在服务器项目目录中，且使用默认域名 `eand.cn`，可直接执行：
+
+```bash
+chmod +x deploy/install_server.sh
+sudo bash deploy/install_server.sh
+```
+
+如果需要自定义域名、端口或运行用户，可以这样执行：
+
+```bash
+sudo DOMAIN=eand.cn WWW_DOMAIN=www.eand.cn APP_PORT=5173 APP_USER=root APP_GROUP=root bash deploy/install_server.sh
+```
+
+脚本会自动完成：
+
+- 若不存在 `.env`，则用 `.env.production.example` 生成
+- 执行 `npm install --production`
+- 写入 systemd 服务文件
+- 写入 Nginx 配置文件
+- 重载并启动 `virtual-pet`
+- 检查 Nginx 配置并重载
+
+如果还没有 SSL 证书，脚本执行完成后再运行：
+
+```bash
+sudo certbot --nginx -d eand.cn -d www.eand.cn
+```
+
+## 5. 手动配置 systemd 常驻运行
 
 复制 `deploy/virtual-pet.service` 到：
 
@@ -95,7 +126,12 @@ sudo systemctl start virtual-pet
 sudo systemctl status virtual-pet
 ```
 
-## 5. 配置 Nginx
+说明：
+
+- 当前模板默认使用 `root:root`，这是为了兼容你当前服务器环境
+- 如果后续你创建了专门运行用户，再把 `User` 和 `Group` 改掉即可
+
+## 6. 配置 Nginx
 
 复制 `deploy/eand.cn.nginx.conf` 到：
 
@@ -110,7 +146,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## 6. 申请 HTTPS 证书
+## 7. 申请 HTTPS 证书
 
 如果服务器已安装 Certbot：
 
@@ -124,7 +160,7 @@ sudo certbot --nginx -d eand.cn -d www.eand.cn
 https://eand.cn
 ```
 
-## 7. 排查命令
+## 8. 排查命令
 
 ```bash
 curl -I http://127.0.0.1:5173/healthz

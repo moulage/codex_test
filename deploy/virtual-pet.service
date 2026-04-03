@@ -7,11 +7,12 @@ Wants=network.target
 Type=simple
 WorkingDirectory=/var/www/virtual-pet
 EnvironmentFile=/var/www/virtual-pet/.env
+Environment=NODE_ENV=production
 ExecStart=/usr/bin/node /var/www/virtual-pet/server.js
 Restart=always
 RestartSec=5
-User=www-data
-Group=www-data
+User=root
+Group=root
 
 [Install]
 WantedBy=multi-user.target
