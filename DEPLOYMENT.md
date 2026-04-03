@@ -26,7 +26,19 @@
 - Nginx
 - 已解析域名 `eand.cn` 和 `www.eand.cn` 到服务器公网 IP
 
-## 2. 准备环境变量
+## 2. 准备两份环境变量配置
+
+项目内已保留两份 MySQL 配置：
+
+- 本地测试配置：`.env.local.example`
+- 正式环境配置：`.env.production.example`
+
+代码默认行为：
+
+- `NODE_ENV=development` 时默认使用本地测试库配置，不改你本地现有 MySQL 配置
+- `NODE_ENV=production` 时默认使用正式环境库配置：`root / WangHui@0710`
+
+正式环境部署时，建议把正式模板复制为服务器上的 `.env`。
 
 在服务器项目目录创建 `.env`：
 
@@ -38,7 +50,7 @@ PUBLIC_BASE_URL=https://eand.cn
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=你的数据库密码
+DB_PASSWORD=WangHui@0710
 DB_NAME=virtual_pet
 ```
 

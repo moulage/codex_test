@@ -7,11 +7,27 @@ const mysql = require('mysql2/promise');
 const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number(process.env.PORT || 5173);
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || `http://127.0.0.1:${PORT}`;
-const DB_HOST = process.env.DB_HOST || '127.0.0.1';
-const DB_PORT = Number(process.env.DB_PORT || 3306);
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASSWORD = process.env.DB_PASSWORD || 'wanghui';
-const DB_NAME = process.env.DB_NAME || 'virtual_pet';
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const DB_DEFAULTS = NODE_ENV === 'production'
+  ? {
+      host: '127.0.0.1',
+      port: 3306,
+      user: 'root',
+      password: 'WangHui@0710',
+      name: 'virtual_pet'
+    }
+  : {
+      host: '127.0.0.1',
+      port: 3306,
+      user: 'root',
+      password: 'wanghui',
+      name: 'virtual_pet'
+    };
+const DB_HOST = process.env.DB_HOST || DB_DEFAULTS.host;
+const DB_PORT = Number(process.env.DB_PORT || DB_DEFAULTS.port);
+const DB_USER = process.env.DB_USER || DB_DEFAULTS.user;
+const DB_PASSWORD = process.env.DB_PASSWORD || DB_DEFAULTS.password;
+const DB_NAME = process.env.DB_NAME || DB_DEFAULTS.name;
 const PET_SCORE_PER_COMPLETION = 10;
 const PET_LEVEL_RULES = [
   { level: 1, scoreMin: 0, scoreMax: 199 },
