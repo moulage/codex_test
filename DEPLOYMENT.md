@@ -5,9 +5,10 @@
 ## 已补充的项目配置
 
 - 服务支持通过 `HOST` 绑定外网监听，默认 `0.0.0.0`
-- 服务支持 `PUBLIC_BASE_URL`，线上可设置为 `https://eand.cn`
+- 服务支持 `PUBLIC_BASE_URL`，线上可设置为 `http://eand.cn` 或 `https://eand.cn`
 - 新增健康检查接口：`/healthz` 和 `/api/healthz`
-- 提供 Nginx 反向代理配置：`deploy/eand.cn.nginx.conf`
+- 提供 Nginx HTTP 配置：`deploy/eand.cn.nginx.conf`
+- 提供 Nginx HTTPS 示例：`deploy/eand.cn.nginx.https.conf`
 - 提供 systemd 服务配置：`deploy/virtual-pet.service`
 - 提供一键安装脚本：`deploy/install_server.sh`
 - 提供环境变量模板：`.env.example`
@@ -47,7 +48,7 @@
 NODE_ENV=production
 HOST=0.0.0.0
 PORT=5173
-PUBLIC_BASE_URL=https://eand.cn
+PUBLIC_BASE_URL=http://eand.cn
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
@@ -97,6 +98,17 @@ sudo DOMAIN=eand.cn WWW_DOMAIN=www.eand.cn APP_PORT=5173 APP_USER=root APP_GROUP
 - 重载并启动 `virtual-pet`
 - 检查 Nginx 配置并重载
 
+默认行为：
+
+- 脚本默认只生成 HTTP 配置，不依赖现成证书
+- 首次部署不会因为缺少 `/etc/letsencrypt/live/...` 证书文件导致 `nginx -t` 失败
+
+如果已经签发好证书，想直接写入 HTTPS 配置，可执行：
+
+```bash
+sudo ENABLE_HTTPS=true bash deploy/install_server.sh
+```
+
 如果还没有 SSL 证书，脚本执行完成后再运行：
 
 ```bash
@@ -133,10 +145,16 @@ sudo systemctl status virtual-pet
 
 ## 6. 配置 Nginx
 
-复制 `deploy/eand.cn.nginx.conf` 到：
+只开 HTTP 时，复制 `deploy/eand.cn.nginx.conf` 到：
 
 ```bash
 /etc/nginx/conf.d/eand.cn.conf
+```
+
+如果已经申请好证书，需要 HTTPS，再改用：
+
+```bash
+deploy/eand.cn.nginx.https.conf
 ```
 
 检查并重载：

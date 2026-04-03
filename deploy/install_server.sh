@@ -11,6 +11,7 @@ APP_PORT="${APP_PORT:-5173}"
 NODE_BIN="${NODE_BIN:-$(command -v node)}"
 APP_USER="${APP_USER:-root}"
 APP_GROUP="${APP_GROUP:-root}"
+ENABLE_HTTPS="${ENABLE_HTTPS:-false}"
 
 if [[ -z "${NODE_BIN}" ]]; then
   echo "node not found in PATH"
@@ -73,6 +74,10 @@ server {
         proxy_set_header Connection "upgrade";
     }
 }
+EOF
+
+if [[ "${ENABLE_HTTPS}" == "true" ]]; then
+cat >> "${NGINX_FILE}" <<EOF
 
 server {
     listen 443 ssl http2;
@@ -100,6 +105,7 @@ server {
     }
 }
 EOF
+fi
 
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
@@ -114,5 +120,10 @@ echo "deployment completed"
 echo "env file: ${ENV_FILE}"
 echo "systemd: ${SERVICE_FILE}"
 echo "nginx: ${NGINX_FILE}"
-echo "if certificates are not issued yet, run:"
-echo "certbot --nginx -d ${DOMAIN} -d ${WWW_DOMAIN}"
+if [[ "${ENABLE_HTTPS}" == "true" ]]; then
+  echo "https nginx block enabled"
+else
+  echo "http-only nginx config installed"
+  echo "to enable https later, obtain certs first and rerun with:"
+  echo "ENABLE_HTTPS=true bash deploy/install_server.sh"
+fi
