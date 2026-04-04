@@ -174,45 +174,6 @@
   animation: tpb-pulse 3.2s ease-in-out infinite;
 }
 
-.tpb-pet-core {
-  position: relative;
-  width: 74%;
-  height: 74%;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 6px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.74) 34%, rgba(255, 255, 255, 0.2));
-  box-shadow: 0 18px 36px rgba(32, 50, 74, 0.14);
-}
-
-.theme-night .tpb-pet-core {
-  background:
-    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.96), rgba(182, 222, 255, 0.48) 38%, rgba(140, 209, 255, 0.12));
-}
-
-.tpb-accent {
-  padding: 6px 10px;
-  border-radius: 999px;
-  color: #fff;
-  background: linear-gradient(180deg, #ffc56d, var(--tpb-accent));
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.tpb-pet-name {
-  font-size: clamp(24px, 2.8vw, 34px);
-  line-height: 1;
-}
-
-.tpb-pet-copy {
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-}
-
 .tpb-particle {
   position: absolute;
   display: inline-block;

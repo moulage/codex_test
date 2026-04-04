@@ -380,6 +380,8 @@ function ParentModePage({
           </div>
         </header>
 
+        {saveMessage && !saveError ? <div className="parent-save-banner">保存成功，孩子模式已同步最新配置。</div> : null}
+
         {loading ? <section className="demo-empty"><h2>正在读取家长配置</h2><p>稍等一下，正在同步任务和成员信息。</p></section> : null}
         {error ? <section className="demo-empty"><h2>读取失败</h2><p>{error}</p></section> : null}
 
@@ -484,7 +486,7 @@ function ParentModePage({
 
             <section className="parent-editor-card">
               <p className="demo-card-kicker">状态</p>
-              <p className={`demo-status${saveError ? ' is-error' : ''}`}>{saveError || saveMessage || '修改任务或成员后点击“保存配置”。'}</p>
+              <p className={`demo-status${saveError ? ' is-error' : saveMessage ? ' is-success' : ''}`}>{saveError || saveMessage || '修改任务或成员后点击“保存配置”。'}</p>
             </section>
           </div>
         ) : null}
@@ -645,6 +647,14 @@ function App() {
   const displayPetName =
     selectedCollectionPet?.isUnlocked ? selectedCollectionPet.name : currentPet.name || currentUser.petName || '泡泡';
 
+  async function loadAppState(tokenOverride = null, userId = '') {
+    setLoading(true);
+    setError('');
+    const latest = await requestJson(buildStatePath(userId), {}, tokenOverride);
+    setState(latest);
+    return latest;
+  }
+
   useEffect(() => {
     if (!authToken) {
       setLoading(false);
@@ -654,13 +664,9 @@ function App() {
     }
 
     let cancelled = false;
-    setLoading(true);
-    setError('');
-
-    requestJson(buildStatePath(selectedUserId))
-      .then((data) => {
+    loadAppState(null, selectedUserId)
+      .then(() => {
         if (cancelled) return;
-        setState(data);
       })
       .catch((fetchError) => {
         if (cancelled) return;
@@ -791,12 +797,17 @@ function App() {
 
       setAuthToken(data.token);
       setAuthTokenState(data.token);
+      setSelectedUserId('');
+      setPendingCollectionResetUserId('');
+      setSelectedCollectionCode('');
+      setParentModeVisible(false);
+      setAdoptionVisible(false);
+      setClaimNextVisible(false);
 
       if (authMode === 'register') {
         await openAdoptionFlow(data.token);
       } else {
-        const latest = await requestJson(buildStatePath(''), {}, data.token);
-        setState(latest);
+        await loadAppState(data.token, '');
         setMessage('登录成功，欢迎回来。');
       }
     } catch (authError) {
@@ -1205,7 +1216,7 @@ function App() {
                   <div className="demo-stage-head">
                     <div>
                       <p className="demo-card-kicker">互动操作</p>
-                      <h2>{displayPetName || '宠物伙伴'}</h2>
+                      <h2 className="demo-stage-title">{displayPetName || '宠物伙伴'}</h2>
                     </div>
                     <span className="demo-period-badge">{PERIOD_THEME[livePeriod]?.label || '上午'}</span>
                   </div>

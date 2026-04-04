@@ -259,6 +259,25 @@ select {
   font-weight: 800;
 }
 
+.demo-stage-title {
+  position: relative;
+  display: inline-block;
+  padding-right: 10px;
+  color: #153f70;
+  text-shadow: 0 8px 20px rgba(31, 140, 255, 0.16);
+  animation: petTitleBob 2.8s ease-in-out infinite;
+}
+
+.demo-stage-title::after {
+  content: "✦";
+  position: absolute;
+  right: -10px;
+  top: -6px;
+  font-size: 14px;
+  color: #ff9a3c;
+  animation: petTitleSpark 1.8s ease-in-out infinite;
+}
+
 .demo-stage-hero {
   position: relative;
   display: grid;
@@ -287,15 +306,6 @@ select {
   bottom: 50%;
   width: min(46vw, 280px);
   transform: translate(50%, 50%);
-}
-
-.demo-stage-background .tpb-pet-core {
-  width: 82%;
-  height: 82%;
-  opacity: 0.9;
-  box-shadow:
-    0 0 0 16px rgba(255, 255, 255, 0.12),
-    0 18px 36px rgba(32, 50, 74, 0.18);
 }
 
 .demo-stage-pet {
@@ -921,6 +931,39 @@ select {
 
 .demo-status.is-error {
   color: #d84d5b;
+}
+
+.demo-status.is-success {
+  color: #12946d;
+}
+
+.parent-save-banner {
+  padding: 14px 18px;
+  border-radius: 18px;
+  color: #0f6f57;
+  font-weight: 800;
+  background: linear-gradient(135deg, rgba(189, 255, 224, 0.92), rgba(226, 255, 192, 0.92));
+  box-shadow: 0 16px 28px rgba(18, 148, 109, 0.14);
+}
+
+@keyframes petTitleBob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes petTitleSpark {
+  0%, 100% {
+    transform: scale(0.92) rotate(0deg);
+    opacity: 0.68;
+  }
+  50% {
+    transform: scale(1.18) rotate(12deg);
+    opacity: 1;
+  }
 }
 
 .task-tabs {

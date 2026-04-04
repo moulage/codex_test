@@ -113,13 +113,8 @@ export function TimePetBackground({ period = 'morning', petName = '泡泡', titl
           </>
         ) : null}
 
-        <div className="tpb-pet-badge">
-          <span className="tpb-pet-halo" aria-hidden="true" />
-          <div className="tpb-pet-core">
-            <span className="tpb-accent">{theme.accentWord}</span>
-            <strong className="tpb-pet-name">{petName}</strong>
-            <span className="tpb-pet-copy">跟着粒子光点去冒险</span>
-          </div>
+        <div className="tpb-pet-badge" aria-hidden="true">
+          <span className="tpb-pet-halo" />
         </div>
       </div>
     </section>
