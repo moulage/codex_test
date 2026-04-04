@@ -410,11 +410,43 @@ async function initializeDatabase() {
   if (petNameColumns.length === 0) {
     await pool.query("ALTER TABLE users ADD COLUMN pet_name VARCHAR(64) NOT NULL DEFAULT '' AFTER display_name");
   }
+  const [displayPetCodeColumns] = await pool.execute(
+    `SELECT COLUMN_NAME
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = ?
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'display_pet_code'`,
+    [DB_NAME]
+  );
+  if (displayPetCodeColumns.length === 0) {
+    await pool.query("ALTER TABLE users ADD COLUMN display_pet_code VARCHAR(64) NULL AFTER current_pet_code");
+  }
+  const [displayPetOrderColumns] = await pool.execute(
+    `SELECT COLUMN_NAME
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = ?
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'display_pet_order'`,
+    [DB_NAME]
+  );
+  if (displayPetOrderColumns.length === 0) {
+    await pool.query('ALTER TABLE users ADD COLUMN display_pet_order INT UNSIGNED NULL AFTER current_pet_order');
+  }
   await pool.query(
     `UPDATE users u
      JOIN pet_groups p ON p.pet_code = u.current_pet_code
      SET u.pet_name = p.display_name
      WHERE u.pet_name = ''`
+  );
+  await pool.query(
+    `UPDATE users
+     SET display_pet_code = current_pet_code
+     WHERE display_pet_code IS NULL OR display_pet_code = ''`
+  );
+  await pool.query(
+    `UPDATE users
+     SET display_pet_order = current_pet_order
+     WHERE display_pet_order IS NULL OR display_pet_order = 0`
   );
   const defaultAccountId = await ensureDefaultAccount();
   await pool.execute('UPDATE users SET account_id = ? WHERE account_id IS NULL', [defaultAccountId]);
@@ -687,13 +719,15 @@ async function adoptStarterPetForAccount(connection, accountId, starterPetCode) 
      SET pet_name = ?,
          starter_pet_code = ?,
          current_pet_code = ?,
+         display_pet_code = ?,
          current_pet_order = ?,
+         display_pet_order = ?,
          current_pet_score = 0,
          mood = 0,
          stars = 0,
          total_completed = 0
      WHERE id = ? AND account_id = ?`,
-    [selectedPet.display_name, selectedPet.pet_code, selectedPet.pet_code, selectedPet.sort_order, userId, accountId]
+    [selectedPet.display_name, selectedPet.pet_code, selectedPet.pet_code, selectedPet.pet_code, selectedPet.sort_order, selectedPet.sort_order, userId, accountId]
   );
   await connection.execute('DELETE FROM user_task_progress WHERE user_id = ?', [userId]);
   await connection.execute('DELETE FROM user_pet_collection WHERE user_id = ?', [userId]);
@@ -705,6 +739,85 @@ async function adoptStarterPetForAccount(connection, accountId, starterPetCode) 
   });
 
   return userId;
+}
+
+async function claimNextPetForUser(connection, accountId, userId) {
+  const [petGroups] = await connection.query('SELECT pet_code, display_name, sort_order FROM pet_groups ORDER BY sort_order ASC');
+  const totalPets = petGroups.length;
+  const [[userRow]] = await connection.execute(
+    `SELECT id, pet_name, current_pet_code, current_pet_order, current_pet_score
+     FROM users
+     WHERE id = ? AND account_id = ?
+     FOR UPDATE`,
+    [userId, accountId]
+  );
+
+  if (!userRow) {
+    throw new Error('未找到对应的用户');
+  }
+
+  if (userRow.current_pet_score < PET_UNLOCK_SCORE || userRow.current_pet_order >= totalPets) {
+    throw new Error('当前还没有可领取的新宠物');
+  }
+
+  const nextPet = petGroups[userRow.current_pet_order];
+  if (!nextPet) {
+    throw new Error('下一只宠物不存在');
+  }
+
+  await clearCurrentCollectionFlag(connection, userId);
+  await ensureUserCollection(connection, userId, userRow.current_pet_code, userRow.current_pet_order, {
+    isCurrent: false,
+    bestLevel: 3,
+    bestScore: PET_UNLOCK_SCORE,
+    isMaxLevel: true
+  });
+  await ensureUserCollection(connection, userId, nextPet.pet_code, nextPet.sort_order, {
+    isCurrent: true,
+    bestLevel: 1,
+    bestScore: 0,
+    isMaxLevel: false
+  });
+
+  await connection.execute(
+    `UPDATE users
+     SET current_pet_code = ?, display_pet_code = ?, current_pet_order = ?, display_pet_order = ?, current_pet_score = 0
+     WHERE id = ? AND account_id = ?`,
+    [nextPet.pet_code, nextPet.pet_code, nextPet.sort_order, nextPet.sort_order, userId, accountId]
+  );
+
+  return nextPet;
+}
+
+async function setDisplayedPetForUser(connection, accountId, userId, petCode) {
+  const [[userRow]] = await connection.execute(
+    `SELECT id
+     FROM users
+     WHERE id = ? AND account_id = ?
+     LIMIT 1`,
+    [userId, accountId]
+  );
+  if (!userRow) {
+    throw new Error('未找到对应的用户');
+  }
+
+  const [[collectionRow]] = await connection.execute(
+    `SELECT pet_order
+     FROM user_pet_collection
+     WHERE user_id = ? AND pet_code = ?
+     LIMIT 1`,
+    [userId, petCode]
+  );
+  if (!collectionRow) {
+    throw new Error('该宠物尚未解锁，不能设为展示宠物');
+  }
+
+  await connection.execute(
+    `UPDATE users
+     SET display_pet_code = ?, display_pet_order = ?
+     WHERE id = ? AND account_id = ?`,
+    [petCode, collectionRow.pet_order, userId, accountId]
+  );
 }
 
 async function loadUiAssets(connection = pool) {
@@ -745,7 +858,8 @@ function buildStoredTaskId(accountId, taskId) {
 async function loadState(accountId, userId, connection = pool) {
   const today = await refreshDailyTaskProgress(accountId, userId, connection);
   const [[userRow]] = await connection.execute(
-    `SELECT id, account_id, display_name, pet_name, starter_pet_code, current_pet_code, current_pet_order,
+    `SELECT id, account_id, display_name, pet_name, starter_pet_code, current_pet_code, display_pet_code,
+            current_pet_order, display_pet_order,
             current_pet_score, mood, stars, total_completed
      FROM users
      WHERE id = ? AND account_id = ?`,
@@ -768,10 +882,12 @@ async function loadState(accountId, userId, connection = pool) {
     [userId, today, accountId]
   );
 
-  const currentPetLevel =
+  const activePetLevel =
     userRow.current_pet_score >= PET_UNLOCK_SCORE && userRow.current_pet_order >= (await loadPetGroups(connection)).length
       ? 3
       : getLevelByScore(userRow.current_pet_score);
+  const displayPetCode = userRow.display_pet_code || userRow.current_pet_code;
+  const displayPetOrder = userRow.display_pet_order || userRow.current_pet_order;
 
   const [assetRows] = await connection.execute(
     `SELECT a.level_no, a.image_path, a.image_format, g.display_name, g.sort_order
@@ -779,7 +895,20 @@ async function loadState(accountId, userId, connection = pool) {
      JOIN pet_groups g ON g.pet_code = a.pet_code
      WHERE a.pet_code = ? AND a.level_no = ?
      LIMIT 1`,
-    [userRow.current_pet_code, currentPetLevel]
+    [
+      displayPetCode,
+      displayPetCode === userRow.current_pet_code
+        ? activePetLevel
+        : (
+            await connection.execute(
+              `SELECT COALESCE(best_level, 1) AS bestLevel
+               FROM user_pet_collection
+               WHERE user_id = ? AND pet_code = ?
+               LIMIT 1`,
+              [userId, displayPetCode]
+            )
+          )[0][0]?.bestLevel || 1
+    ]
   );
 
   const [collectionRows] = await connection.execute(
@@ -795,8 +924,29 @@ async function loadState(accountId, userId, connection = pool) {
 
   const users = await loadUsers(accountId, connection);
   const petGroups = await loadPetGroups(connection);
-  const uiAssets = await loadUiAssets(connection);
   const totalPets = petGroups.length;
+  const [petGalleryAssetRows] = totalPets
+    ? await connection.query(
+        `SELECT pet_code, level_no, image_path, image_format
+         FROM pet_assets
+         WHERE pet_code IN (${petGroups.map(() => '?').join(',')})`,
+        petGroups.map((item) => item.pet_code)
+      )
+    : [[]];
+  const collectionMap = new Map(collectionRows.map((item) => [item.code, item]));
+  const nextPetGroup = userRow.current_pet_order < totalPets ? petGroups[userRow.current_pet_order] : null;
+  const [nextPetAssets] =
+    nextPetGroup
+      ? await connection.execute(
+          `SELECT image_path, image_format
+           FROM pet_assets
+           WHERE pet_code = ? AND level_no = 1
+           LIMIT 1`,
+          [nextPetGroup.pet_code]
+        )
+      : [[]];
+  const uiAssets = await loadUiAssets(connection);
+  const nextPetAsset = nextPetAssets[0];
   const currentPetAsset = assetRows[0];
   const currentPeriod = getCurrentPeriod();
   const backgroundAssets = {
@@ -823,12 +973,12 @@ async function loadState(accountId, userId, connection = pool) {
     totalCompleted: dailyCompletedCount,
     tasks: taskRows,
     pet: {
-      code: userRow.current_pet_code,
-      defaultName: currentPetAsset?.display_name || userRow.current_pet_code,
-      name: userRow.pet_name || currentPetAsset?.display_name || userRow.current_pet_code,
-      order: userRow.current_pet_order,
-      level: currentPetLevel,
-      score: getScoreWithinCurrentPet(userRow.current_pet_score),
+      code: displayPetCode,
+      defaultName: currentPetAsset?.display_name || displayPetCode,
+      name: displayPetCode === userRow.current_pet_code ? userRow.pet_name || currentPetAsset?.display_name || displayPetCode : currentPetAsset?.display_name || displayPetCode,
+      order: displayPetOrder,
+      level: displayPetCode === userRow.current_pet_code ? activePetLevel : Math.min(3, Number(collectionMap.get(displayPetCode)?.bestLevel || 1)),
+      score: displayPetCode === userRow.current_pet_code ? getScoreWithinCurrentPet(userRow.current_pet_score) : Math.min(PET_UNLOCK_SCORE, Number(collectionMap.get(displayPetCode)?.bestScore || 0)),
       totalScoreToUnlock: PET_UNLOCK_SCORE,
       imagePath: currentPetAsset?.image_path || '',
       format: currentPetAsset?.image_format || 'webp',
@@ -836,13 +986,55 @@ async function loadState(accountId, userId, connection = pool) {
     },
     collection: collectionRows.map((item) => ({
       ...item,
+      imagePath:
+        petGalleryAssetRows.find(
+          (asset) => asset.pet_code === item.code && asset.level_no === Math.min(Number(item.bestLevel || 1), 3)
+        )?.image_path ||
+        petGalleryAssetRows.find((asset) => asset.pet_code === item.code && asset.level_no === 1)?.image_path ||
+        '',
+      format:
+        petGalleryAssetRows.find(
+          (asset) => asset.pet_code === item.code && asset.level_no === Math.min(Number(item.bestLevel || 1), 3)
+        )?.image_format ||
+        petGalleryAssetRows.find((asset) => asset.pet_code === item.code && asset.level_no === 1)?.image_format ||
+        'webp',
       isCurrent: Boolean(item.isCurrent),
       isMaxLevel: Boolean(item.isMaxLevel)
     })),
+    petGallery: petGroups.map((group) => {
+      const collected = collectionMap.get(group.pet_code);
+      return {
+        code: group.pet_code,
+        name: group.display_name,
+        order: group.sort_order,
+        isUnlocked: Boolean(collected),
+        isCurrent: group.pet_code === displayPetCode,
+        bestLevel: Number(collected?.bestLevel || 0),
+        bestScore: Number(collected?.bestScore || 0),
+        isMaxLevel: Boolean(collected?.isMaxLevel),
+        levels: [1, 2, 3].map((level) => ({
+          level,
+          imagePath:
+            petGalleryAssetRows.find((asset) => asset.pet_code === group.pet_code && asset.level_no === level)?.image_path || '',
+          format:
+            petGalleryAssetRows.find((asset) => asset.pet_code === group.pet_code && asset.level_no === level)?.image_format || 'webp'
+        }))
+      };
+    }),
     progression: {
       totalPets,
       unlockedCount: collectionRows.length,
-      nextPetCode: userRow.current_pet_order < totalPets ? petGroups[userRow.current_pet_order].pet_code : null
+      nextPetCode: nextPetGroup?.pet_code || null,
+      canClaimNextPet: Boolean(nextPetGroup && userRow.current_pet_score >= PET_UNLOCK_SCORE),
+      nextPet: nextPetGroup
+        ? {
+            code: nextPetGroup.pet_code,
+            name: nextPetGroup.display_name,
+            order: nextPetGroup.sort_order,
+            previewImagePath: nextPetAsset?.image_path || '',
+            previewFormat: nextPetAsset?.image_format || 'webp'
+          }
+        : null
     },
     ui: {
       currentPeriod,
@@ -865,13 +1057,15 @@ async function resetUserProgress(accountId, userId, connection = pool) {
   await connection.execute(
     `UPDATE users
      SET current_pet_code = starter_pet_code,
+         display_pet_code = starter_pet_code,
          current_pet_order = ?,
+         display_pet_order = ?,
          current_pet_score = 0,
          mood = 0,
          stars = 0,
          total_completed = 0
      WHERE id = ?`,
-    [starterPetOrder, userId]
+    [starterPetOrder, starterPetOrder, userId]
   );
   await connection.execute('DELETE FROM user_task_progress WHERE user_id = ?', [userId]);
   await connection.execute('DELETE FROM user_pet_collection WHERE user_id = ?', [userId]);
@@ -890,35 +1084,24 @@ async function advancePetProgress(connection, userRow, petRewardScore) {
   const totalPets = petGroups.length;
   let currentPetOrder = userRow.current_pet_order;
   let currentPetCode = userRow.current_pet_code;
-  let currentPetScore = userRow.current_pet_score + petRewardScore;
+  let currentPetScore = Math.min(userRow.current_pet_score + petRewardScore, PET_UNLOCK_SCORE);
 
-  while (currentPetScore >= PET_UNLOCK_SCORE && currentPetOrder < totalPets) {
+  if (currentPetScore >= PET_UNLOCK_SCORE && currentPetOrder < totalPets) {
+    await clearCurrentCollectionFlag(connection, userRow.id);
     await ensureUserCollection(connection, userRow.id, currentPetCode, currentPetOrder, {
-      isCurrent: false,
+      isCurrent: true,
       bestLevel: 3,
       bestScore: PET_UNLOCK_SCORE,
       isMaxLevel: true
     });
 
-    if (currentPetOrder === totalPets) {
-      break;
-    }
-
-    currentPetOrder += 1;
-    currentPetCode = petGroups[currentPetOrder - 1].pet_code;
-    currentPetScore -= PET_UNLOCK_SCORE;
-    if (currentPetScore < 0) currentPetScore = 0;
-
-    await ensureUserCollection(connection, userRow.id, currentPetCode, currentPetOrder, {
-      isCurrent: true,
-      bestLevel: getLevelByScore(currentPetScore),
-      bestScore: currentPetScore,
-      isMaxLevel: false
-    });
-  }
-
-  if (currentPetOrder >= totalPets) {
-    currentPetScore = Math.min(currentPetScore, PET_UNLOCK_SCORE);
+    await connection.execute(
+      `UPDATE users
+       SET current_pet_code = ?, current_pet_order = ?, current_pet_score = ?
+       WHERE id = ?`,
+      [currentPetCode, currentPetOrder, PET_UNLOCK_SCORE, userRow.id]
+    );
+    return;
   }
 
   await clearCurrentCollectionFlag(connection, userRow.id);
@@ -1044,6 +1227,44 @@ const server = http.createServer(async (req, res) => {
         try {
           await connection.beginTransaction();
           const userId = await adoptStarterPetForAccount(connection, account.id, starterPetCode);
+          await connection.commit();
+          return json(res, 200, await loadState(account.id, userId, connection));
+        } catch (error) {
+          await connection.rollback();
+          throw error;
+        } finally {
+          connection.release();
+        }
+      }
+
+      if (req.method === 'POST' && requestUrl.pathname === '/api/pets/claim-next') {
+        const userId = await getUserIdFromUrl(requestUrl, account.id);
+        const connection = await pool.getConnection();
+        try {
+          await connection.beginTransaction();
+          await claimNextPetForUser(connection, account.id, userId);
+          await connection.commit();
+          return json(res, 200, await loadState(account.id, userId, connection));
+        } catch (error) {
+          await connection.rollback();
+          throw error;
+        } finally {
+          connection.release();
+        }
+      }
+
+      if (req.method === 'POST' && requestUrl.pathname === '/api/pets/select-display') {
+        const userId = await getUserIdFromUrl(requestUrl, account.id);
+        const body = await parseBody(req);
+        const petCode = String(body.petCode || '').trim();
+        if (!petCode) {
+          return json(res, 400, { message: '请选择要展示的宠物' });
+        }
+
+        const connection = await pool.getConnection();
+        try {
+          await connection.beginTransaction();
+          await setDisplayedPetForUser(connection, account.id, userId, petCode);
           await connection.commit();
           return json(res, 200, await loadState(account.id, userId, connection));
         } catch (error) {
