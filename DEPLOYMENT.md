@@ -13,7 +13,15 @@
 - 提供一键安装脚本：`deploy/install_server.sh`
 - 提供环境变量模板：`.env.example`
 
-## 服务器推荐目录
+## 服务器正式目录
+
+当前正式环境按你的服务器实际路径建议使用：
+
+```bash
+/home/codex_test
+```
+
+如果后续你要改成更标准的发布目录，再迁到：
 
 ```bash
 /var/www/virtual-pet
@@ -52,7 +60,7 @@ PUBLIC_BASE_URL=http://eand.cn
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=WangHui@0710
+DB_PASSWORD=你的MySQL密码
 DB_NAME=virtual_pet
 ```
 
@@ -74,9 +82,9 @@ node server.js
 curl http://127.0.0.1:5173/healthz
 ```
 
-## 4. 一键写入 .env / systemd / Nginx
+## 4. 一键初始化正式环境
 
-如果你已经在服务器项目目录中，且使用默认域名 `eand.cn`，可直接执行：
+如果你已经在服务器项目目录中，且当前项目路径就是 `/home/codex_test`，可直接执行：
 
 ```bash
 chmod +x deploy/install_server.sh
@@ -123,11 +131,11 @@ sudo certbot --nginx -d eand.cn -d www.eand.cn
 /etc/systemd/system/virtual-pet.service
 ```
 
-按实际路径修改三处：
+按实际路径修改三处。你当前正式环境应改成：
 
-- `WorkingDirectory=/var/www/virtual-pet`
-- `EnvironmentFile=/var/www/virtual-pet/.env`
-- `ExecStart=/usr/bin/node /var/www/virtual-pet/server.js`
+- `WorkingDirectory=/home/codex_test`
+- `EnvironmentFile=/home/codex_test/.env`
+- `ExecStart=/usr/bin/node /home/codex_test/server.js`
 
 然后执行：
 
@@ -187,7 +195,30 @@ curl -I https://eand.cn
 sudo journalctl -u virtual-pet -n 200 --no-pager
 ```
 
-## 9. 代码更新后重新发布
+## 9. 一键启动正式环境
+
+初始化完成后，项目内提供了一个一键启动脚本：
+
+```bash
+chmod +x deploy/start_server.sh
+sudo bash deploy/start_server.sh
+```
+
+脚本会自动执行：
+
+- 检查 `/home/codex_test/.env` 是否存在
+- 运行 `npm run check`
+- `systemctl enable/restart virtual-pet`
+- 检查并重启 Nginx
+- 验证 `http://127.0.0.1:5173/healthz`
+
+如果你只想启动应用，不想同时动 Nginx：
+
+```bash
+sudo CHECK_NGINX=false bash deploy/start_server.sh
+```
+
+## 10. 代码更新后重新发布
 
 项目内提供了一个最简重发脚本：
 
