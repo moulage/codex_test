@@ -638,6 +638,75 @@ async function loadPetGroups(connection = pool) {
   return rows;
 }
 
+async function createInitialRegisteredUser(connection, accountId) {
+  const petGroups = await loadPetGroups(connection);
+  const starterPet = petGroups[0];
+  if (!starterPet) {
+    throw new Error('未找到可领养的宠物');
+  }
+
+  const [userResult] = await connection.execute(
+    `INSERT INTO users
+      (account_id, display_name, pet_name, starter_pet_code, current_pet_code, current_pet_order, current_pet_score, mood, stars, total_completed)
+     VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0)`,
+    [accountId, '宝贝', starterPet.display_name, starterPet.pet_code, starterPet.pet_code, starterPet.sort_order]
+  );
+
+  await ensureUserCollection(connection, userResult.insertId, starterPet.pet_code, starterPet.sort_order, {
+    isCurrent: true,
+    bestLevel: 1,
+    bestScore: 0,
+    isMaxLevel: false
+  });
+
+  return userResult.insertId;
+}
+
+async function adoptStarterPetForAccount(connection, accountId, starterPetCode) {
+  const petGroups = await loadPetGroups(connection);
+  const selectedPet = petGroups.find((item) => item.pet_code === starterPetCode);
+  if (!selectedPet) {
+    throw new Error('请选择有效的初始宠物');
+  }
+
+  const [userRows] = await connection.execute(
+    `SELECT id
+     FROM users
+     WHERE account_id = ?
+     ORDER BY id ASC
+     LIMIT 1`,
+    [accountId]
+  );
+  const userId = userRows[0]?.id;
+  if (!userId) {
+    throw new Error('当前账号还没有可领养宠物的用户');
+  }
+
+  await connection.execute(
+    `UPDATE users
+     SET pet_name = ?,
+         starter_pet_code = ?,
+         current_pet_code = ?,
+         current_pet_order = ?,
+         current_pet_score = 0,
+         mood = 0,
+         stars = 0,
+         total_completed = 0
+     WHERE id = ? AND account_id = ?`,
+    [selectedPet.display_name, selectedPet.pet_code, selectedPet.pet_code, selectedPet.sort_order, userId, accountId]
+  );
+  await connection.execute('DELETE FROM user_task_progress WHERE user_id = ?', [userId]);
+  await connection.execute('DELETE FROM user_pet_collection WHERE user_id = ?', [userId]);
+  await ensureUserCollection(connection, userId, selectedPet.pet_code, selectedPet.sort_order, {
+    isCurrent: true,
+    bestLevel: 1,
+    bestScore: 0,
+    isMaxLevel: false
+  });
+
+  return userId;
+}
+
 async function loadUiAssets(connection = pool) {
   const [rows] = await connection.query(
     'SELECT asset_key, asset_group, display_name, image_path, sort_order FROM ui_assets ORDER BY sort_order ASC'
@@ -902,21 +971,7 @@ const server = http.createServer(async (req, res) => {
         for (const [index, task] of defaultTasks.entries()) {
           await insertTask(connection, accountId, task, index + 1);
         }
-        for (const user of defaultUsers) {
-          const petOrder = getPetOrderByCode(user.starterPetCode, readPetAssets());
-          const [userResult] = await connection.execute(
-            `INSERT INTO users
-              (account_id, display_name, pet_name, starter_pet_code, current_pet_code, current_pet_order, current_pet_score, mood, stars, total_completed)
-             VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0)`,
-            [accountId, user.name, user.petName, user.starterPetCode, user.starterPetCode, petOrder]
-          );
-          await ensureUserCollection(connection, userResult.insertId, user.starterPetCode, petOrder, {
-            isCurrent: true,
-            bestLevel: 1,
-            bestScore: 0,
-            isMaxLevel: false
-          });
-        }
+        await createInitialRegisteredUser(connection, accountId);
         const token = createSessionToken();
         await connection.execute(
           `INSERT INTO account_sessions (account_id, session_token, expires_at)
@@ -978,6 +1033,27 @@ const server = http.createServer(async (req, res) => {
       const account = await requireAccount(req, res);
       if (!account) return;
 
+      if (req.method === 'POST' && requestUrl.pathname === '/api/onboarding/adopt-starter-pet') {
+        const body = await parseBody(req);
+        const starterPetCode = String(body.starterPetCode || '').trim();
+        if (!starterPetCode) {
+          return json(res, 400, { message: '请选择想领养的初始宠物' });
+        }
+
+        const connection = await pool.getConnection();
+        try {
+          await connection.beginTransaction();
+          const userId = await adoptStarterPetForAccount(connection, account.id, starterPetCode);
+          await connection.commit();
+          return json(res, 200, await loadState(account.id, userId, connection));
+        } catch (error) {
+          await connection.rollback();
+          throw error;
+        } finally {
+          connection.release();
+        }
+      }
+
     if (req.method === 'GET' && requestUrl.pathname === '/api/state') {
       const userId = await getUserIdFromUrl(requestUrl, account.id);
       return json(res, 200, await loadState(account.id, userId));
@@ -987,6 +1063,7 @@ const server = http.createServer(async (req, res) => {
       const userId = await getUserIdFromUrl(requestUrl, account.id);
       const state = await loadState(account.id, userId);
       const petGroups = await loadPetGroups();
+      const petAssets = readPetAssets();
       const uiAssets = await loadUiAssets();
       return json(res, 200, {
         tasks: state.tasks.map((task) => ({
@@ -1001,7 +1078,11 @@ const server = http.createServer(async (req, res) => {
         petGroups: petGroups.map((item) => ({
           code: item.pet_code,
           name: item.display_name,
-          order: item.sort_order
+          order: item.sort_order,
+          previewImagePath:
+            petAssets.find((asset) => asset.pet_code === item.pet_code && asset.level_no === 1)?.image_path || '',
+          previewFormat:
+            petAssets.find((asset) => asset.pet_code === item.pet_code && asset.level_no === 1)?.image_format || 'webp'
         })),
         uiAssets: uiAssets.map((item) => ({
           key: item.asset_key,

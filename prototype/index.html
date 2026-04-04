@@ -19,7 +19,7 @@
         <div class="topbar-actions">
         <div class="mode-switch" aria-label="模式切换">
           <span class="mode-pill active">孩子模式</span>
-          <a class="mode-pill mode-link" href="/parent.html">家长模式</a>
+          <a id="parentModeLink" class="mode-pill mode-link" href="/parent.html">家长模式</a>
         </div>
         <button id="logoutBtn" class="secondary-btn" type="button">退出账号</button>
         </div>
@@ -131,6 +131,21 @@
           <p id="petHint" class="pet-hint">先完成一个任务，让小猪开始今天的成长冒险。</p>
         </div>
         <div id="collectionList" class="collection-list"></div>
+      </section>
+
+      <section id="parentGateModal" class="modal-shell hidden" aria-hidden="true">
+        <div class="modal-backdrop"></div>
+        <div class="modal-card gate-card" role="dialog" aria-modal="true" aria-labelledby="parentGateTitle">
+          <p class="eyebrow">家长验证</p>
+          <h2 id="parentGateTitle">答对乘法题再进入家长模式</h2>
+          <p id="parentGateQuestion" class="gate-question">3 × 4 = ?</p>
+          <input id="parentGateInput" class="editor-input gate-input" type="number" inputmode="numeric" placeholder="请输入答案" />
+          <div class="modal-actions dual-actions">
+            <button id="cancelParentGateBtn" class="secondary-btn" type="button">取消</button>
+            <button id="confirmParentGateBtn" type="button">进入家长模式</button>
+          </div>
+          <p id="parentGateMessage" class="message" aria-live="polite"></p>
+        </div>
       </section>
     </main>
 

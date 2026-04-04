@@ -3,8 +3,41 @@ const GROUP_MAP = {
   '学习': 'studyList',
   '运动': 'exerciseList'
 };
+const PARENT_GATE_STORAGE_KEY = 'virtual-pet-parent-pass';
+const PARENT_GATE_TTL_MS = 10 * 60 * 1000;
 
 let petGroups = [];
+let parentGateAnswer = 0;
+
+function isParentGateUnlocked() {
+  const storedAt = Number(window.sessionStorage.getItem(PARENT_GATE_STORAGE_KEY) || 0);
+  return storedAt > 0 && Date.now() - storedAt <= PARENT_GATE_TTL_MS;
+}
+
+function unlockParentGate() {
+  window.sessionStorage.setItem(PARENT_GATE_STORAGE_KEY, String(Date.now()));
+}
+
+function setParentGateVisibility(visible) {
+  const modal = document.getElementById('parentPageGateModal');
+  modal.classList.toggle('hidden', !visible);
+  modal.setAttribute('aria-hidden', String(!visible));
+}
+
+function showParentGateMessage(text, isError = false) {
+  const node = document.getElementById('parentPageGateMessage');
+  node.textContent = text;
+  node.style.color = isError ? '#d84d5b' : '#16784f';
+}
+
+function createParentQuestion() {
+  const left = Math.floor(Math.random() * 9) + 1;
+  const right = Math.floor(Math.random() * 9) + 1;
+  parentGateAnswer = left * right;
+  document.getElementById('parentPageGateQuestion').textContent = `${left} × ${right} = ?`;
+  document.getElementById('parentPageGateInput').value = '';
+  showParentGateMessage('请输入正确答案后进入家长模式。');
+}
 
 async function fetchConfig() {
   const res = await authFetch('/api/config');
@@ -144,11 +177,27 @@ function bindEvents() {
   document.getElementById('logoutBtn').addEventListener('click', () => {
     logoutAccount();
   });
+
+  document.getElementById('confirmParentPageGateBtn').addEventListener('click', () => {
+    const value = Number(document.getElementById('parentPageGateInput').value);
+    if (value !== parentGateAnswer) {
+      createParentQuestion();
+      showParentGateMessage('答案不对，请再算一次。', true);
+      return;
+    }
+
+    unlockParentGate();
+    setParentGateVisibility(false);
+  });
 }
 
 async function init() {
   if (!requireAuthPage()) return;
   bindEvents();
+  if (!isParentGateUnlocked()) {
+    createParentQuestion();
+    setParentGateVisibility(true);
+  }
   try {
     const config = await fetchConfig();
     petGroups = config.petGroups || [];

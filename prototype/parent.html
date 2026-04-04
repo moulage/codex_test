@@ -7,6 +7,21 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="parent-body">
+    <section id="parentPageGateModal" class="modal-shell hidden" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <div class="modal-card gate-card" role="dialog" aria-modal="true" aria-labelledby="parentPageGateTitle">
+        <p class="eyebrow">家长验证</p>
+        <h2 id="parentPageGateTitle">请先完成乘法题</h2>
+        <p id="parentPageGateQuestion" class="gate-question">2 × 3 = ?</p>
+        <input id="parentPageGateInput" class="editor-input gate-input" type="number" inputmode="numeric" placeholder="请输入答案" />
+        <div class="modal-actions dual-actions">
+          <a class="parent-link" href="/">返回孩子模式</a>
+          <button id="confirmParentPageGateBtn" type="button">验证进入</button>
+        </div>
+        <p id="parentPageGateMessage" class="message" aria-live="polite"></p>
+      </div>
+    </section>
+
     <main class="parent-shell">
       <header class="parent-topbar">
         <div>

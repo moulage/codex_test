@@ -36,6 +36,20 @@
         <p class="hero-text">默认演示账号：`demo`，密码：`123456`</p>
         <p id="authMessage" class="message"></p>
       </section>
+
+      <section id="adoptionModal" class="modal-shell hidden" aria-hidden="true">
+        <div class="modal-backdrop"></div>
+        <div class="modal-card adoption-card" role="dialog" aria-modal="true" aria-labelledby="adoptionTitle">
+          <p class="eyebrow">注册成功</p>
+          <h2 id="adoptionTitle">选择你的初始宠物</h2>
+          <p class="hero-text">下面 7 只宠物都可以领养，选中后会作为这个账号的第一只初始宠物。</p>
+          <div id="adoptionPetGrid" class="pet-option-grid"></div>
+          <div class="modal-actions">
+            <button id="confirmAdoptionBtn" type="button" disabled>确认领养</button>
+          </div>
+          <p id="adoptionMessage" class="message" aria-live="polite"></p>
+        </div>
+      </section>
     </main>
 
     <script src="./auth.js"></script>

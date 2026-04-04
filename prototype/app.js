@@ -1,11 +1,14 @@
 const GROUPS = ['日常行为习惯', '学习', '运动'];
 const USER_STORAGE_KEY = 'virtual-pet-user-id';
+const PARENT_GATE_STORAGE_KEY = 'virtual-pet-parent-pass';
+const PARENT_GATE_TTL_MS = 10 * 60 * 1000;
 
 let previousState = null;
 let activeTab = '日常行为习惯';
 let currentUserId = Number(window.localStorage.getItem(USER_STORAGE_KEY) || 0);
 let activePlayCleanupTimer = 0;
 let activePlayAnimationFrame = 0;
+let parentGateAnswer = 0;
 
 const PERIOD_LABELS = {
   dawn: '晨曦',
@@ -693,6 +696,36 @@ function showMessage(text, isError = false) {
   message.style.color = isError ? '#d84d5b' : '#16784f';
 }
 
+function isParentGateUnlocked() {
+  const storedAt = Number(window.sessionStorage.getItem(PARENT_GATE_STORAGE_KEY) || 0);
+  return storedAt > 0 && Date.now() - storedAt <= PARENT_GATE_TTL_MS;
+}
+
+function unlockParentGate() {
+  window.sessionStorage.setItem(PARENT_GATE_STORAGE_KEY, String(Date.now()));
+}
+
+function setParentGateVisibility(visible) {
+  const modal = document.getElementById('parentGateModal');
+  modal.classList.toggle('hidden', !visible);
+  modal.setAttribute('aria-hidden', String(!visible));
+}
+
+function showParentGateMessage(text, isError = false) {
+  const node = document.getElementById('parentGateMessage');
+  node.textContent = text;
+  node.style.color = isError ? '#d84d5b' : '#16784f';
+}
+
+function createParentQuestion() {
+  const left = Math.floor(Math.random() * 9) + 1;
+  const right = Math.floor(Math.random() * 9) + 1;
+  parentGateAnswer = left * right;
+  document.getElementById('parentGateQuestion').textContent = `${left} × ${right} = ?`;
+  document.getElementById('parentGateInput').value = '';
+  showParentGateMessage('请输入正确答案后进入家长模式。');
+}
+
 function bindEvents() {
   document.getElementById('tabNav').addEventListener('click', (event) => {
     const button = event.target.closest('.tab-btn');
@@ -729,6 +762,33 @@ function bindEvents() {
 
   document.getElementById('logoutBtn').addEventListener('click', () => {
     logoutAccount();
+  });
+
+  document.getElementById('parentModeLink').addEventListener('click', (event) => {
+    if (isParentGateUnlocked()) {
+      return;
+    }
+
+    event.preventDefault();
+    createParentQuestion();
+    setParentGateVisibility(true);
+    document.getElementById('parentGateInput').focus();
+  });
+
+  document.getElementById('cancelParentGateBtn').addEventListener('click', () => {
+    setParentGateVisibility(false);
+  });
+
+  document.getElementById('confirmParentGateBtn').addEventListener('click', () => {
+    const value = Number(document.getElementById('parentGateInput').value);
+    if (value !== parentGateAnswer) {
+      createParentQuestion();
+      showParentGateMessage('答案不对，请再算一次。', true);
+      return;
+    }
+
+    unlockParentGate();
+    window.location.href = '/parent.html';
   });
 }
 
