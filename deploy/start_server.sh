@@ -22,6 +22,8 @@ if [[ ! -f "${APP_DIR}/.env" ]]; then
 fi
 
 cd "${APP_DIR}"
+npm --prefix prototype/react-app install
+npm --prefix prototype/react-app run build
 npm run check
 
 systemctl daemon-reload

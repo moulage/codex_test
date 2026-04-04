@@ -37,8 +37,12 @@ const PET_LEVEL_RULES = [
 const PET_UNLOCK_SCORE = 1000;
 const SESSION_TTL_DAYS = 30;
 
+const REACT_DIST_DIR = path.join(__dirname, 'prototype', 'react-app', 'dist');
+const LEGACY_STATIC_DIR = path.join(__dirname, 'prototype');
+const REACT_DIST_INDEX = path.join(REACT_DIST_DIR, 'index.html');
+const HAS_REACT_DIST = fs.existsSync(REACT_DIST_INDEX);
+
 const STATIC_DIRS = {
-  '/': path.join(__dirname, 'prototype'),
   '/pet/': path.join(__dirname, 'pet'),
   '/black/': path.join(__dirname, 'black')
 };
@@ -216,11 +220,26 @@ function resolveStaticFile(urlPath) {
     return filePath;
   }
 
-  const baseDir = STATIC_DIRS['/'];
+  if (HAS_REACT_DIST) {
+    if (urlPath === '/') {
+      return REACT_DIST_INDEX;
+    }
+
+    const requestPath = decodeURIComponent(urlPath.replace(/^\//, ''));
+    const reactFilePath = path.normalize(path.join(REACT_DIST_DIR, requestPath));
+    if (!reactFilePath.startsWith(REACT_DIST_DIR)) return null;
+
+    if (fs.existsSync(reactFilePath) && fs.statSync(reactFilePath).isFile()) {
+      return reactFilePath;
+    }
+
+    return REACT_DIST_INDEX;
+  }
+
   const requestPath = urlPath === '/' ? 'index.html' : decodeURIComponent(urlPath.replace(/^\//, ''));
-  const filePath = path.normalize(path.join(baseDir, requestPath));
-  if (!filePath.startsWith(baseDir)) return null;
-  return filePath;
+  const legacyFilePath = path.normalize(path.join(LEGACY_STATIC_DIR, requestPath));
+  if (!legacyFilePath.startsWith(LEGACY_STATIC_DIR)) return null;
+  return legacyFilePath;
 }
 
 function serveStatic(req, res) {

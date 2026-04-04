@@ -29,6 +29,8 @@ fi
 
 cd "${APP_DIR}"
 npm install --production
+npm --prefix prototype/react-app install
+npm --prefix prototype/react-app run build
 
 cat > "${SERVICE_FILE}" <<EOF
 [Unit]

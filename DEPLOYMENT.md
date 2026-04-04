@@ -73,6 +73,8 @@ DB_NAME=virtual_pet
 
 ```bash
 npm install --production
+npm --prefix prototype/react-app install
+npm --prefix prototype/react-app run build
 node server.js
 ```
 
@@ -101,6 +103,7 @@ sudo DOMAIN=eand.cn WWW_DOMAIN=www.eand.cn APP_PORT=5173 APP_USER=root APP_GROUP
 
 - 若不存在 `.env`，则用 `.env.production.example` 生成
 - 执行 `npm install --production`
+- 执行 React 前端构建 `npm --prefix prototype/react-app run build`
 - 写入 systemd 服务文件
 - 写入 Nginx 配置文件
 - 重载并启动 `virtual-pet`
@@ -207,6 +210,7 @@ sudo bash deploy/start_server.sh
 脚本会自动执行：
 
 - 检查 `/home/codex_test/.env` 是否存在
+- 安装并构建 React 前端产物
 - 运行 `npm run check`
 - `systemctl enable/restart virtual-pet`
 - 检查并重启 Nginx
@@ -232,6 +236,7 @@ bash deploy/redeploy.sh
 - 检查工作区是否干净
 - `git pull --no-rebase`
 - `npm install --production`
+- 安装并构建 React 前端产物
 - `npm run check`
 - 重启 `virtual-pet`
 - 检查并重载 Nginx

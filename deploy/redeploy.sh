@@ -22,6 +22,8 @@ else
 fi
 
 npm install --production
+npm --prefix prototype/react-app install
+npm --prefix prototype/react-app run build
 npm run check
 
 sudo systemctl restart "${SERVICE_NAME}"
