@@ -646,6 +646,7 @@ function App() {
       : currentPet.imagePath;
   const displayPetName =
     selectedCollectionPet?.isUnlocked ? selectedCollectionPet.name : currentPet.name || currentUser.petName || '泡泡';
+  const displayPetNickname = currentUser.petName || displayPetName || '宠物伙伴';
 
   async function loadAppState(tokenOverride = null, userId = '') {
     setLoading(true);
@@ -1216,7 +1217,7 @@ function App() {
                   <div className="demo-stage-head">
                     <div>
                       <p className="demo-card-kicker">互动操作</p>
-                      <h2 className="demo-stage-title">{displayPetName || '宠物伙伴'}</h2>
+                      <h2 className="demo-stage-title">{displayPetNickname}</h2>
                     </div>
                     <span className="demo-period-badge">{PERIOD_THEME[livePeriod]?.label || '上午'}</span>
                   </div>
