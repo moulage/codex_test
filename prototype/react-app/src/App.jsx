@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TimePetBackground, PERIOD_THEME } from './components/TimePetBackground.jsx';
 
 const AUTH_TOKEN_KEY = 'virtual-pet-auth-token';
 const GROUPS = ['日常行为习惯', '学习', '运动'];
+const LEARNING_TABS = ['拼音', '加减法', '英语'];
 const PARENT_GATE_STORAGE_KEY = 'virtual-pet-react-parent-pass';
 const PARENT_GATE_TTL_MS = 10 * 60 * 1000;
 const PLAY_ROUTINES = [
@@ -109,7 +110,6 @@ const PLAY_MODE_LABELS = {
   combo: '连招切换',
   battle: '街舞对战'
 };
-
 function shuffleArray(items) {
   const cloned = [...items];
   for (let index = cloned.length - 1; index > 0; index -= 1) {
@@ -202,6 +202,51 @@ function createBurstItems(symbols, count) {
   }));
 }
 
+function createToneEnvelope(gainNode, startAt, volume, attack, decay) {
+  gainNode.gain.setValueAtTime(0.0001, startAt);
+  gainNode.gain.linearRampToValueAtTime(volume, startAt + attack);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + attack + decay);
+}
+
+function createFireworkBursts(count = 14) {
+  const palettes = [
+    ['#ffd166', '#ff7b72', '#fff1b6', '#ff9f68'],
+    ['#74c0fc', '#d0ebff', '#91a7ff', '#4dabf7'],
+    ['#ff85a1', '#ffc2d1', '#ffd6a5', '#ffe066'],
+    ['#63e6be', '#96f2d7', '#8ce99a', '#fcc419']
+  ];
+
+  return Array.from({ length: count }, (_, burstIndex) => {
+    const particleCount = 24 + (burstIndex % 5) * 3;
+    const palette = palettes[burstIndex % palettes.length];
+    const originX = 10 + Math.random() * 80;
+    const originY = 10 + Math.random() * 56;
+    const delay = burstIndex * 0.12;
+
+    return {
+      id: `firework-burst-${Date.now()}-${burstIndex}`,
+      left: `${originX}%`,
+      top: `${originY}%`,
+      delay: `${delay}s`,
+      particles: Array.from({ length: particleCount }, (_, particleIndex) => {
+        const angle = (Math.PI * 2 * particleIndex) / particleCount;
+        const distance = 90 + Math.random() * 120;
+        const dx = Math.cos(angle) * distance;
+        const dy = Math.sin(angle) * distance;
+
+        return {
+          id: `particle-${burstIndex}-${particleIndex}`,
+          dx: `${dx}px`,
+          dy: `${dy}px`,
+          color: palette[particleIndex % palette.length],
+          duration: `${4.2 + Math.random() * 0.8}s`,
+          size: `${6 + Math.random() * 7}px`
+        };
+      })
+    };
+  });
+}
+
 async function requestJson(path, options = {}, tokenOverride = null) {
   const token = tokenOverride === null ? getAuthToken() : tokenOverride;
   const res = await fetch(path, {
@@ -268,6 +313,96 @@ function createBlankUser(defaultPetCode = '') {
   };
 }
 
+function createLearningProblems() {
+  const additionProblems = Array.from({ length: 6 }, (_, index) => {
+    const left = Math.floor(Math.random() * 80) + 10;
+    const right = Math.floor(Math.random() * (99 - left)) + 1;
+    return {
+      id: `addition-${Date.now()}-${index}`,
+      type: '两位数加法',
+      expression: `${left} + ${right} = ?`,
+      answer: left + right
+    };
+  });
+
+  const subtractionProblems = Array.from({ length: 6 }, (_, index) => {
+    const left = Math.floor(Math.random() * 90) + 10;
+    const right = Math.floor(Math.random() * 9) + 1;
+    return {
+      id: `subtraction-${Date.now()}-${index}`,
+      type: '两位数减一位数',
+      expression: `${left} - ${right} = ?`,
+      answer: left - right
+    };
+  });
+
+  return [...additionProblems, ...subtractionProblems]
+    .sort(() => Math.random() - 0.5);
+}
+
+function createEmptyAnswers(problems) {
+  return problems.reduce((acc, problem) => {
+    acc[problem.id] = '';
+    return acc;
+  }, {});
+}
+
+function createMathPracticeSet() {
+  const problems = createLearningProblems();
+  return {
+    problems,
+    answers: createEmptyAnswers(problems)
+  };
+}
+
+function createPinyinPracticeSet() {
+  const syllables = [
+    { word: '妈', pinyin: 'mā', speak: 'ma1', category: '声调' },
+    { word: '鱼', pinyin: 'yú', speak: 'yu2', category: '整体认读' },
+    { word: '火', pinyin: 'huǒ', speak: 'huo3', category: '三拼音节' },
+    { word: '月', pinyin: 'yuè', speak: 'yue4', category: '复韵母' },
+    { word: '花', pinyin: 'huā', speak: 'hua1', category: '三拼音节' },
+    { word: '桥', pinyin: 'qiáo', speak: 'qiao2', category: '介母练习' },
+    { word: '云', pinyin: 'yún', speak: 'yun2', category: '前鼻音' },
+    { word: '星', pinyin: 'xīng', speak: 'xing1', category: '后鼻音' }
+  ];
+  const initials = ['b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'zh', 'ch', 'sh', 'r', 'z', 'c', 's', 'y', 'w'];
+  const finals = ['a', 'o', 'e', 'i', 'u', 'ai', 'ei', 'ao', 'ou', 'an', 'en', 'ang', 'eng', 'ong', 'ia', 'ie', 'iao', 'iu', 'ian', 'ing', 'ua', 'uo', 'uai', 'ui', 'uan', 'un'];
+
+  return {
+    matching: syllables.sort(() => Math.random() - 0.5).slice(0, 6),
+    initials: initials.sort(() => Math.random() - 0.5).slice(0, 8),
+    finals: finals.sort(() => Math.random() - 0.5).slice(0, 8)
+  };
+}
+
+function createEnglishPracticeSet() {
+  const words = [
+    { word: 'apple', meaning: '苹果', sentence: 'I eat an apple.' },
+    { word: 'book', meaning: '书', sentence: 'This is my book.' },
+    { word: 'cat', meaning: '猫', sentence: 'The cat is sleepy.' },
+    { word: 'dog', meaning: '狗', sentence: 'The dog can run.' },
+    { word: 'sun', meaning: '太阳', sentence: 'The sun is bright.' },
+    { word: 'moon', meaning: '月亮', sentence: 'The moon is round.' },
+    { word: 'milk', meaning: '牛奶', sentence: 'I like milk.' },
+    { word: 'school', meaning: '学校', sentence: 'I go to school.' }
+  ].sort(() => Math.random() - 0.5).slice(0, 6);
+
+  const phrases = [
+    'Good morning.',
+    'How are you?',
+    'Thank you.',
+    'See you tomorrow.',
+    'I am happy.',
+    'Let us read.'
+  ].sort(() => Math.random() - 0.5).slice(0, 4);
+
+  return {
+    words,
+    phrases
+  };
+}
+
 function RewardOverlay({ items, fireworks }) {
   if (!items.length && !fireworks) return null;
   return (
@@ -289,19 +424,248 @@ function RewardOverlay({ items, fireworks }) {
         </span>
       ))}
       {fireworks
-        ? Array.from({ length: 4 }, (_, index) => (
+        ? fireworks.map((burst) => (
             <span
-              key={`firework-${index}`}
-              className="reward-firework"
+              key={burst.id}
+              className="reward-firework-burst"
               style={{
-                left: `${18 + index * 20}%`,
-                top: `${12 + (index % 2) * 18}%`,
-                animationDelay: `${index * 0.24}s`
+                left: burst.left,
+                top: burst.top,
+                animationDelay: burst.delay
               }}
-            />
+            >
+              <span className="reward-firework-core" />
+              {burst.particles.map((particle) => (
+                <span
+                  key={particle.id}
+                  className="reward-firework-particle"
+                  style={{
+                    '--dx': particle.dx,
+                    '--dy': particle.dy,
+                    '--spark-color': particle.color,
+                    '--spark-size': particle.size,
+                    animationDelay: burst.delay,
+                    animationDuration: particle.duration
+                  }}
+                />
+              ))}
+            </span>
           ))
         : null}
     </div>
+  );
+}
+
+function LearningPage({
+  activeTab,
+  onTabChange,
+  pinyinPractice,
+  onRefreshPinyin,
+  englishPractice,
+  onRefreshEnglish,
+  onSpeakText,
+  mathProblems,
+  mathAnswers,
+  mathChecked,
+  onMathAnswerChange,
+  onCheckMath,
+  onRefreshMath,
+  onBack
+}) {
+  const answeredCount = mathProblems.filter((problem) => String(mathAnswers[problem.id] || '').trim() !== '').length;
+  const correctCount = mathProblems.filter((problem) => String(mathAnswers[problem.id] || '').trim() !== '' && Number(mathAnswers[problem.id]) === problem.answer).length;
+
+  return (
+    <section className="learning-shell">
+      <header className="learning-topbar">
+        <div>
+          <p className="demo-card-kicker">学习乐园</p>
+          <h2>选择一个学习主题开始练习</h2>
+          <p className="demo-copy">这里先开放拼音、加减法、英语三个入口，目前优先完成加减法练习生成。</p>
+        </div>
+        <button type="button" className="demo-action ghost" onClick={onBack}>
+          返回首页
+        </button>
+      </header>
+
+      <div className="learning-tabs" role="tablist" aria-label="学习类型">
+        {LEARNING_TABS.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            className={`demo-tab${activeTab === tab ? ' active' : ''}`}
+            onClick={() => onTabChange(tab)}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === '拼音' ? (
+        <section className="learning-card">
+          <div className="learning-card-head">
+            <div>
+              <p className="demo-card-kicker">拼音练习</p>
+              <h3>认读 + 声母 + 韵母</h3>
+              <p className="demo-copy">先认读常见拼音，再熟悉声母和韵母，适合每天快速过一遍。</p>
+            </div>
+            <button type="button" className="demo-action" onClick={onRefreshPinyin}>
+              换一组
+            </button>
+          </div>
+
+          <div className="learning-pinyin-layout">
+            <section className="learning-subcard">
+              <strong>认读卡片</strong>
+              <div className="learning-pinyin-grid">
+                {pinyinPractice.matching.map((item) => (
+                  <button
+                    key={`${item.word}-${item.pinyin}`}
+                    type="button"
+                    className="learning-pinyin-card learning-speak-card"
+                    onClick={() => onSpeakText(item.speak, 'zh-CN')}
+                  >
+                    <span className="learning-pinyin-word">{item.word}</span>
+                    <strong>{item.pinyin}</strong>
+                    <span>{item.category}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="learning-subcard">
+              <strong>本轮声母</strong>
+              <div className="learning-chip-row">
+                {pinyinPractice.initials.map((item) => (
+                  <button key={item} type="button" className="learning-chip learning-chip-button" onClick={() => onSpeakText(item, 'zh-CN')}>
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="learning-subcard">
+              <strong>本轮韵母</strong>
+              <div className="learning-chip-row">
+                {pinyinPractice.finals.map((item) => (
+                  <button key={item} type="button" className="learning-chip learning-chip-button" onClick={() => onSpeakText(item, 'zh-CN')}>
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+        </section>
+      ) : activeTab === '加减法' ? (
+        <section className="learning-card">
+          <div className="learning-card-head">
+            <div>
+              <p className="demo-card-kicker">加减法练习</p>
+              <h3>两位数加法 + 两位数减一位数</h3>
+              <p className="demo-copy">每次生成 12 题，先自己填写答案，再统一检查。</p>
+            </div>
+            <div className="learning-actions">
+              <button type="button" className="demo-action secondary" onClick={onCheckMath}>
+                检查答案
+              </button>
+              <button type="button" className="demo-action" onClick={onRefreshMath}>
+                重做一组
+              </button>
+            </div>
+          </div>
+
+          <div className="learning-summary">
+            <strong>已作答 {answeredCount}/{mathProblems.length} 题</strong>
+            <span>{mathChecked ? `检查完成，答对 ${correctCount}/${mathProblems.length} 题` : '填写完成后点击“检查答案”统一校验'}</span>
+          </div>
+
+          <div className="learning-math-grid">
+            {mathProblems.map((problem, index) => {
+              const currentAnswer = String(mathAnswers[problem.id] || '').trim();
+              const hasValue = currentAnswer !== '';
+              const isCorrect = mathChecked && hasValue && Number(currentAnswer) === problem.answer;
+              const isWrong = mathChecked && hasValue && Number(currentAnswer) !== problem.answer;
+
+              return (
+                <article
+                  key={problem.id}
+                  className={`learning-problem-card${
+                    isCorrect ? ' is-correct' : isWrong ? ' is-wrong' : ''
+                  }`}
+                >
+                  <span className="learning-problem-index">第 {index + 1} 题</span>
+                  <strong>{problem.expression}</strong>
+                  <span>{problem.type}</span>
+                  <input
+                    className="demo-input learning-answer-input"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="填写答案"
+                    value={mathAnswers[problem.id] || ''}
+                    onChange={(event) => onMathAnswerChange(problem.id, event.target.value)}
+                  />
+                  {mathChecked && hasValue ? (
+                    <span className="learning-answer-status">
+                      {isCorrect ? '回答正确' : `正确答案：${problem.answer}`}
+                    </span>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : activeTab === '英语' ? (
+        <section className="learning-card">
+          <div className="learning-card-head">
+            <div>
+              <p className="demo-card-kicker">英语练习</p>
+              <h3>单词认读 + 短句跟读</h3>
+              <p className="demo-copy">先看单词和中文意思，再跟读简单短句，适合入门练习。</p>
+            </div>
+            <button type="button" className="demo-action" onClick={onRefreshEnglish}>
+              换一组
+            </button>
+          </div>
+
+          <div className="learning-pinyin-layout">
+            <section className="learning-subcard">
+              <strong>单词卡片</strong>
+              <div className="learning-pinyin-grid">
+                {englishPractice.words.map((item) => (
+                  <button
+                    key={item.word}
+                    type="button"
+                    className="learning-pinyin-card learning-speak-card"
+                    onClick={() => onSpeakText(item.word, 'en-US')}
+                  >
+                    <span className="learning-english-word">{item.word}</span>
+                    <strong>{item.meaning}</strong>
+                    <span>{item.sentence}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="learning-subcard">
+              <strong>日常短句</strong>
+              <div className="learning-chip-row">
+                {englishPractice.phrases.map((item) => (
+                  <button key={item} type="button" className="learning-chip learning-chip-button" onClick={() => onSpeakText(item, 'en-US')}>
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+        </section>
+      ) : (
+        <section className="learning-empty">
+          <p className="demo-card-kicker">{activeTab}</p>
+          <h3>这个模块下一步补充</h3>
+          <p className="demo-copy">当前先完成核心学习能力，后续可以继续补更多互动玩法。</p>
+        </section>
+      )}
+    </section>
   );
 }
 
@@ -566,7 +930,15 @@ function ClaimNextPetModal({ visible, nextPet, loading, error, onConfirm }) {
 }
 
 function App() {
+  const initialMathPractice = createMathPracticeSet();
   const [authToken, setAuthTokenState] = useState(() => getAuthToken());
+  const [currentView, setCurrentView] = useState('home');
+  const [activeLearningTab, setActiveLearningTab] = useState('加减法');
+  const [pinyinPractice, setPinyinPractice] = useState(() => createPinyinPracticeSet());
+  const [englishPractice, setEnglishPractice] = useState(() => createEnglishPracticeSet());
+  const [mathProblems, setMathProblems] = useState(initialMathPractice.problems);
+  const [mathAnswers, setMathAnswers] = useState(initialMathPractice.answers);
+  const [mathChecked, setMathChecked] = useState(false);
   const [state, setState] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [previewPeriod, setPreviewPeriod] = useState('');
@@ -580,7 +952,7 @@ function App() {
   const [playSegmentIndex, setPlaySegmentIndex] = useState(0);
   const [rewardItems, setRewardItems] = useState([]);
   const [stageFloatItems, setStageFloatItems] = useState([]);
-  const [showFireworks, setShowFireworks] = useState(false);
+  const [showFireworks, setShowFireworks] = useState(null);
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({ username: 'demo', password: '123456', displayName: '' });
   const [authLoading, setAuthLoading] = useState(false);
@@ -606,6 +978,7 @@ function App() {
   const [claimNextError, setClaimNextError] = useState('');
   const [selectedCollectionCode, setSelectedCollectionCode] = useState('');
   const [pendingCollectionResetUserId, setPendingCollectionResetUserId] = useState('');
+  const audioContextRef = useRef(null);
 
   const livePeriod = state?.ui?.currentPeriod || 'morning';
   const period = previewPeriod || livePeriod;
@@ -648,6 +1021,104 @@ function App() {
     selectedCollectionPet?.isUnlocked ? selectedCollectionPet.name : currentPet.name || currentUser.petName || '泡泡';
   const displayPetNickname = currentUser.petName || displayPetName || '宠物伙伴';
 
+  function getAudioContext() {
+    if (typeof window === 'undefined') return null;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContextClass();
+    }
+
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
+
+    return audioContextRef.current;
+  }
+
+  function speakLearningText(text, lang = 'zh-CN') {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const content = String(text || '').trim();
+    if (!content) return;
+
+    const synth = window.speechSynthesis;
+    const utterance = new window.SpeechSynthesisUtterance(content);
+    const voices = synth.getVoices();
+    const preferredVoice = voices.find((voice) => (voice.lang || '').toLowerCase().startsWith(lang.toLowerCase()));
+
+    utterance.lang = lang;
+    if (preferredVoice) utterance.voice = preferredVoice;
+    utterance.rate = lang === 'en-US' ? 0.88 : 0.82;
+    utterance.pitch = lang === 'en-US' ? 1 : 1.02;
+
+    synth.cancel();
+    synth.speak(utterance);
+  }
+
+  function playSoundEffect(type) {
+    const context = getAudioContext();
+    if (!context) return;
+
+    const now = context.currentTime;
+    const masterGain = context.createGain();
+    masterGain.gain.value = 0.14;
+    masterGain.connect(context.destination);
+
+    const addTone = ({ frequency, start = 0, duration = 0.2, volume = 0.5, attack = 0.014, decay = 0.2, wave = 'sine', endFrequency = null }) => {
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      const startAt = now + start;
+
+      oscillator.type = wave;
+      oscillator.frequency.setValueAtTime(frequency, startAt);
+      if (endFrequency) {
+        oscillator.frequency.exponentialRampToValueAtTime(endFrequency, startAt + duration);
+      }
+      oscillator.connect(gainNode);
+      gainNode.connect(masterGain);
+      createToneEnvelope(gainNode, startAt, volume, attack, decay);
+      oscillator.start(startAt);
+      oscillator.stop(startAt + duration);
+    };
+
+    if (type === 'task-complete') {
+      addTone({ frequency: 523.25, start: 0, duration: 0.16, volume: 0.34, wave: 'sine' });
+      addTone({ frequency: 659.25, start: 0.1, duration: 0.18, volume: 0.3, wave: 'sine' });
+      addTone({ frequency: 783.99, start: 0.2, duration: 0.24, volume: 0.26, decay: 0.26, wave: 'sine' });
+      addTone({ frequency: 1046.5, start: 0.24, duration: 0.16, volume: 0.12, decay: 0.18, wave: 'sine' });
+      return;
+    }
+
+    const soundMap = {
+      petting: [
+        { frequency: 659.25, duration: 0.12, volume: 0.2, wave: 'sine' },
+        { frequency: 880, start: 0.06, duration: 0.14, volume: 0.16, decay: 0.18, wave: 'sine' }
+      ],
+      playing: [
+        { frequency: 440, duration: 0.12, volume: 0.22, wave: 'sine' },
+        { frequency: 554.37, start: 0.07, duration: 0.14, volume: 0.18, wave: 'sine' },
+        { frequency: 659.25, start: 0.14, duration: 0.18, volume: 0.16, decay: 0.18, wave: 'sine' },
+        { frequency: 880, start: 0.18, duration: 0.12, volume: 0.08, decay: 0.12, wave: 'sine' }
+      ],
+      feeding: [
+        { frequency: 349.23, duration: 0.12, volume: 0.18, wave: 'sine' },
+        { frequency: 440, start: 0.08, duration: 0.14, volume: 0.15, wave: 'sine' },
+        { frequency: 523.25, start: 0.16, duration: 0.16, volume: 0.1, decay: 0.16, wave: 'sine' }
+      ],
+      studying: [
+        { frequency: 392, duration: 0.1, volume: 0.14, wave: 'sine' },
+        { frequency: 523.25, start: 0.08, duration: 0.14, volume: 0.12, decay: 0.16, wave: 'sine' }
+      ],
+      sleeping: [
+        { frequency: 293.66, duration: 0.18, volume: 0.1, decay: 0.28, wave: 'sine', endFrequency: 261.63 },
+        { frequency: 349.23, start: 0.12, duration: 0.22, volume: 0.08, decay: 0.32, wave: 'sine', endFrequency: 293.66 }
+      ]
+    };
+
+    (soundMap[type] || []).forEach(addTone);
+  }
+
   async function loadAppState(tokenOverride = null, userId = '') {
     setLoading(true);
     setError('');
@@ -687,8 +1158,8 @@ function App() {
     if (!rewardItems.length && !showFireworks) return undefined;
     const timer = window.setTimeout(() => {
       setRewardItems([]);
-      setShowFireworks(false);
-    }, 3200);
+      setShowFireworks(null);
+    }, showFireworks ? 5000 : 3200);
     return () => window.clearTimeout(timer);
   }, [rewardItems, showFireworks]);
 
@@ -774,6 +1245,12 @@ function App() {
         : [createBlankUser(parentConfig.petGroups?.[0]?.code || '')]
     );
   }, [parentConfig]);
+
+  useEffect(() => () => {
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+    }
+  }, []);
 
   async function openAdoptionFlow(token) {
     const config = await requestJson('/api/config', {}, token);
@@ -886,17 +1363,52 @@ function App() {
       setState(null);
       setParentModeVisible(false);
       setAdoptionVisible(false);
+      setCurrentView('home');
     }
+  }
+
+  function handleOpenLearning() {
+    setCurrentView('learning');
+    setActiveLearningTab('加减法');
+  }
+
+  function handleBackToHome() {
+    setCurrentView('home');
+  }
+
+  function handleRefreshMathProblems() {
+    const nextProblems = createLearningProblems();
+    setMathProblems(nextProblems);
+    setMathAnswers(createEmptyAnswers(nextProblems));
+    setMathChecked(false);
+  }
+
+  function handleRefreshPinyinPractice() {
+    setPinyinPractice(createPinyinPracticeSet());
+  }
+
+  function handleRefreshEnglishPractice() {
+    setEnglishPractice(createEnglishPracticeSet());
+  }
+
+  function handleMathAnswerChange(problemId, value) {
+    setMathAnswers((current) => ({ ...current, [problemId]: value }));
+  }
+
+  function handleCheckMath() {
+    setMathChecked(true);
   }
 
   async function handleCompleteTask(task) {
     try {
       const latest = await requestJson(buildTaskPath(task.id, selectedUserId), { method: 'POST' });
+      const completionMessage = `${task.title} 完成一次，${latest.user.name} 的 ${latest.pet.name} 获得了 ${task.rewardPetScore} 成长分。`;
       setState(latest);
-      setMessage(`${task.title} 完成一次，${latest.user.name} 的 ${latest.pet.name} 获得了 ${task.rewardPetScore} 成长分。`);
+      setMessage(completionMessage);
       setError('');
-      setRewardItems(createBurstItems(['⭐', '✨', '🌟', '💫'], 10));
-      setShowFireworks((latest.pet?.level || 1) >= 3);
+      setRewardItems([]);
+      setShowFireworks(createFireworkBursts(14));
+      playSoundEffect('task-complete');
     } catch (taskError) {
       setError(taskError.message);
     }
@@ -907,6 +1419,7 @@ function App() {
     setMessage(`你轻轻摸了摸 ${displayPetName || '宠物'}，它开心地回应你。`);
     setRewardItems(createBurstItems(['💗', '💖', '✨'], 8));
     setStageFloatItems(createFloatItems(['💗', '✨', '💕'], 6));
+    playSoundEffect('petting');
     window.setTimeout(() => setInteractionMode(''), 1600);
   }
 
@@ -919,6 +1432,7 @@ function App() {
     setPlaySegmentIndex(0);
     setMessage(`${displayPetName || '宠物'} 开启${PLAY_MODE_LABELS[session.mode]}，${firstSegment.note}先上${firstSegment.routine.label}。`);
     setRewardItems(createBurstItems(firstSegment.routine.symbols, 12));
+    playSoundEffect('playing');
   }
 
   function handleFeeding() {
@@ -929,6 +1443,7 @@ function App() {
     setMessage(`${displayPetName || '宠物'} 正在大口吃饭，头顶已经飘出香喷喷的小蒸汽。`);
     setRewardItems(createBurstItems(['🍎', '🍓', '🥕', '✨'], 10));
     setStageFloatItems(createFloatItems(['🍽️', '🍎', '✨', '🥛'], 8));
+    playSoundEffect('feeding');
     window.setTimeout(() => setInteractionMode(''), 4000);
   }
 
@@ -940,6 +1455,7 @@ function App() {
     setMessage(`${displayPetName || '宠物'} 打开了学习模式，书页和灵感星星正在身边打转。`);
     setRewardItems(createBurstItems(['📚', '✏️', '⭐', '✨'], 10));
     setStageFloatItems(createFloatItems(['📘', '🧠', '✨', '✏️'], 8));
+    playSoundEffect('studying');
     window.setTimeout(() => setInteractionMode(''), 5000);
   }
 
@@ -951,6 +1467,7 @@ function App() {
     setMessage(`${displayPetName || '宠物'} 进入了睡觉时间，云朵和星星正在慢慢把它包起来。`);
     setRewardItems(createBurstItems(['🌙', '⭐', '💤', '✨'], 10));
     setStageFloatItems(createFloatItems(['💤', '☁️', '⭐', '🌙'], 8));
+    playSoundEffect('sleeping');
     window.setTimeout(() => setInteractionMode(''), 6000);
   }
 
@@ -1137,6 +1654,9 @@ function App() {
                 <button type="button" className="demo-action secondary" onClick={openParentMode}>
                   家长模式
                 </button>
+                <button type="button" className="demo-action secondary" onClick={handleOpenLearning}>
+                  学习入口
+                </button>
                 <button type="button" className="demo-action" onClick={() => window.location.reload()}>
                   刷新状态
                 </button>
@@ -1209,6 +1729,23 @@ function App() {
             <p>{error}</p>
             <p>请确认主项目服务已启动在 `127.0.0.1:5173`。</p>
           </section>
+        ) : currentView === 'learning' ? (
+          <LearningPage
+            activeTab={activeLearningTab}
+            onTabChange={setActiveLearningTab}
+            pinyinPractice={pinyinPractice}
+            onRefreshPinyin={handleRefreshPinyinPractice}
+            englishPractice={englishPractice}
+            onRefreshEnglish={handleRefreshEnglishPractice}
+            onSpeakText={speakLearningText}
+            mathProblems={mathProblems}
+            mathAnswers={mathAnswers}
+            mathChecked={mathChecked}
+            onMathAnswerChange={handleMathAnswerChange}
+            onCheckMath={handleCheckMath}
+            onRefreshMath={handleRefreshMathProblems}
+            onBack={handleBackToHome}
+          />
         ) : (
           <>
             <section className="demo-grid">
