@@ -346,6 +346,9 @@ function createLearningProblems() {
       id: `addition-${createdAt}-${index}`,
       mathTab: 'addition',
       type: '两位数加法',
+      operator: '+',
+      left,
+      right,
       expression: `${left} + ${right} = ?`,
       answer: left + right
     };
@@ -358,6 +361,9 @@ function createLearningProblems() {
       id: `subtraction-${createdAt}-${index}`,
       mathTab: 'subtraction',
       type: '两位数减一位数',
+      operator: '-',
+      left,
+      right,
       expression: `${left} - ${right} = ?`,
       answer: left - right
     };
@@ -379,6 +385,65 @@ function createMathPracticeSet() {
   return {
     problems,
     answers: createEmptyAnswers(problems)
+  };
+}
+
+function createMathExplanation(problem, userAnswer) {
+  if (!problem) return null;
+
+  const leftTens = Math.floor(problem.left / 10) * 10;
+  const leftOnes = problem.left % 10;
+
+  if (problem.operator === '+') {
+    const makeTenStep = leftOnes + problem.right >= 10;
+    const neededToTen = 10 - leftOnes;
+    const remainder = problem.right - neededToTen;
+
+    return {
+      title: '加法讲解',
+      method: makeTenStep ? '凑十法' : '拆分法',
+      summary: `${problem.left} + ${problem.right} = ${problem.answer}`,
+      tips: makeTenStep
+        ? [
+            `先看个位：${problem.left} 的个位是 ${leftOnes}，离 10 还差 ${neededToTen}。`,
+            `把 ${problem.right} 分成两部分：${neededToTen} 和 ${remainder}。`,
+            `先加 ${neededToTen}：${problem.left} + ${neededToTen} = ${leftTens + 10}。这一步叫凑十。`,
+            `再加剩下的 ${remainder}：${leftTens + 10} + ${remainder} = ${problem.answer}。`,
+            `所以答案是 ${problem.answer}。下次看到个位快到 10 时，就先凑十。`
+          ]
+        : [
+            `先看个位：${leftOnes} + ${problem.right} = ${leftOnes + problem.right}。`,
+            `十位 ${leftTens} 先不动。`,
+            `再把十位和个位合起来：${leftTens} + ${leftOnes + problem.right} = ${problem.answer}。`,
+            `所以答案是 ${problem.answer}。这道题不用凑十，直接先算个位就行。`
+          ],
+      answerLine: `你的答案：${userAnswer}，正确答案：${problem.answer}`
+    };
+  }
+
+  const borrowFromTens = leftOnes < problem.right;
+  const borrowedTen = leftTens - 10;
+  const borrowedOnes = leftOnes + 10;
+
+  return {
+    title: '减法讲解',
+    method: borrowFromTens ? '退十法' : '平十法',
+    summary: `${problem.left} - ${problem.right} = ${problem.answer}`,
+    tips: borrowFromTens
+      ? [
+          `先看个位：${leftOnes} 不够减 ${problem.right}，所以要从十位借 1 个十。`,
+          `借 1 个十以后，${problem.left} 可以看成 ${borrowedTen} 和 ${borrowedOnes}。`,
+          `先算个位：${borrowedOnes} - ${problem.right} = ${borrowedOnes - problem.right}。`,
+          `再把剩下的十位和个位合起来：${borrowedTen} + ${borrowedOnes - problem.right} = ${problem.answer}。`,
+          `所以答案是 ${problem.answer}。个位不够减时，就用退十法。`
+        ]
+      : [
+          `先看个位：${leftOnes} - ${problem.right} = ${leftOnes - problem.right}。`,
+          `个位够减，十位 ${leftTens} 不变。`,
+          `再把十位和个位合起来：${leftTens} + ${leftOnes - problem.right} = ${problem.answer}。`,
+          `所以答案是 ${problem.answer}。这就是平十法，先减个位就可以。`
+        ],
+    answerLine: `你的答案：${userAnswer}，正确答案：${problem.answer}`
   };
 }
 
@@ -578,6 +643,7 @@ function LearningPage({
   learningPetImagePath,
   learningPetName,
   onMathAnswerChange,
+  onOpenMathExplanation,
   onCheckMath,
   onRefreshMath,
   onBack
@@ -738,9 +804,16 @@ function LearningPage({
                     onChange={(event) => onMathAnswerChange(problem.id, event.target.value)}
                   />
                   {mathChecked && hasValue ? (
-                    <span className="learning-answer-status">
-                      {isCorrect ? '回答正确' : `正确答案：${problem.answer}`}
-                    </span>
+                    <div className="learning-answer-feedback">
+                      <span className="learning-answer-status">
+                        {isCorrect ? '回答正确' : `正确答案：${problem.answer}`}
+                      </span>
+                      {isWrong ? (
+                        <button type="button" className="demo-action ghost learning-detail-button" onClick={() => onOpenMathExplanation(problem)}>
+                          查看详情
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </article>
               );
@@ -830,6 +903,36 @@ function ParentGateModal({ visible, question, answerInput, setAnswerInput, error
           </button>
         </div>
         <p className={`demo-status${error ? ' is-error' : ''}`}>{error || '请输入正确答案后进入家长模式。'}</p>
+      </section>
+    </div>
+  );
+}
+
+function MathExplanationModal({ visible, problem, userAnswer, onClose }) {
+  if (!visible || !problem) return null;
+
+  const explanation = createMathExplanation(problem, userAnswer);
+  if (!explanation) return null;
+
+  return (
+    <div className="demo-modal-shell">
+      <div className="demo-modal-backdrop" onClick={onClose} />
+      <section className="demo-modal-card">
+        <p className="demo-card-kicker">{explanation.title}</p>
+        <h2>{problem.expression}</h2>
+        <div className="math-explanation-badge">{explanation.method}</div>
+        <p className="demo-copy">{explanation.summary}</p>
+        <div className="math-explanation-steps">
+          {explanation.tips.map((tip) => (
+            <p key={tip} className="math-explanation-step">{tip}</p>
+          ))}
+        </div>
+        <p className="math-explanation-answer">{explanation.answerLine}</p>
+        <div className="demo-modal-actions end">
+          <button type="button" className="demo-action" onClick={onClose}>
+            我知道了
+          </button>
+        </div>
       </section>
     </div>
   );
@@ -1076,6 +1179,7 @@ function App() {
     addition: false,
     subtraction: false
   }));
+  const [selectedMathExplanation, setSelectedMathExplanation] = useState(null);
   const [learningPetVisible, setLearningPetVisible] = useState(false);
   const [learningSadVisible, setLearningSadVisible] = useState(false);
   const [state, setState] = useState(null);
@@ -1540,6 +1644,7 @@ function App() {
       subtraction: false
     });
     setActiveMathTab(MATH_TABS[0].id);
+    setSelectedMathExplanation(null);
     setLearningPetVisible(false);
     setLearningSadVisible(false);
   }
@@ -1554,10 +1659,19 @@ function App() {
 
   function handleMathAnswerChange(problemId, value) {
     setMathAnswers((current) => ({ ...current, [problemId]: value }));
+    setSelectedMathExplanation((current) => (current?.id === problemId ? null : current));
     const currentProblem = mathProblems.find((problem) => problem.id === problemId);
     if (currentProblem?.mathTab) {
       setMathCheckedTabs((current) => ({ ...current, [currentProblem.mathTab]: false }));
     }
+  }
+
+  function handleOpenMathExplanation(problem) {
+    setSelectedMathExplanation(problem);
+  }
+
+  function handleCloseMathExplanation() {
+    setSelectedMathExplanation(null);
   }
 
   function handleCheckMath(mathTab) {
@@ -1772,6 +1886,12 @@ function App() {
         onClose={() => setParentGateVisible(false)}
         onConfirm={handleParentGateConfirm}
       />
+      <MathExplanationModal
+        visible={Boolean(selectedMathExplanation)}
+        problem={selectedMathExplanation}
+        userAnswer={selectedMathExplanation ? mathAnswers[selectedMathExplanation.id] || '' : ''}
+        onClose={handleCloseMathExplanation}
+      />
       <ParentModePage
         visible={parentModeVisible}
         loading={parentLoading}
@@ -1930,6 +2050,7 @@ function App() {
             learningPetImagePath={displayPetImagePath}
             learningPetName={displayPetNickname}
             onMathAnswerChange={handleMathAnswerChange}
+            onOpenMathExplanation={handleOpenMathExplanation}
             onCheckMath={handleCheckMath}
             onRefreshMath={handleRefreshMathProblems}
             onBack={handleBackToHome}

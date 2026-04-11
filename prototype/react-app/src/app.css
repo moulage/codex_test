@@ -476,6 +476,51 @@ select {
   color: #345168;
 }
 
+.learning-answer-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.learning-detail-button {
+  padding: 8px 14px;
+}
+
+.math-explanation-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 241, 224, 0.96);
+  color: #a85a12;
+  font-weight: 800;
+}
+
+.math-explanation-steps {
+  display: grid;
+  gap: 10px;
+}
+
+.math-explanation-step {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(241, 247, 251, 0.96);
+  color: #345168;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.math-explanation-answer {
+  margin: 0;
+  color: #153f70;
+  font-weight: 800;
+}
+
 .demo-sidecard {
   align-self: start;
 }
