@@ -4,6 +4,10 @@ import { TimePetBackground, PERIOD_THEME } from './components/TimePetBackground.
 const AUTH_TOKEN_KEY = 'virtual-pet-auth-token';
 const GROUPS = ['日常行为习惯', '学习', '运动'];
 const LEARNING_TABS = ['拼音', '加减法', '英语'];
+const MATH_TABS = [
+  { id: 'addition', label: '加法', type: '两位数加法' },
+  { id: 'subtraction', label: '减法', type: '两位数减一位数' }
+];
 const PARENT_GATE_STORAGE_KEY = 'virtual-pet-react-parent-pass';
 const PARENT_GATE_TTL_MS = 10 * 60 * 1000;
 const PLAY_ROUTINES = [
@@ -340,6 +344,7 @@ function createLearningProblems() {
     const right = Math.floor(Math.random() * (99 - left)) + 1;
     return {
       id: `addition-${createdAt}-${index}`,
+      mathTab: 'addition',
       type: '两位数加法',
       expression: `${left} + ${right} = ?`,
       answer: left + right
@@ -351,6 +356,7 @@ function createLearningProblems() {
     const right = Math.floor(Math.random() * 9) + 1;
     return {
       id: `subtraction-${createdAt}-${index}`,
+      mathTab: 'subtraction',
       type: '两位数减一位数',
       expression: `${left} - ${right} = ?`,
       answer: left - right
@@ -506,6 +512,8 @@ function LearningSadFace({ visible }) {
 function LearningPage({
   activeTab,
   onTabChange,
+  activeMathTab,
+  onMathTabChange,
   pinyinPractice,
   onRefreshPinyin,
   englishPractice,
@@ -513,7 +521,7 @@ function LearningPage({
   onSpeakText,
   mathProblems,
   mathAnswers,
-  mathChecked,
+  mathCheckedTabs,
   learningPetVisible,
   learningSadVisible,
   learningPetImagePath,
@@ -523,9 +531,12 @@ function LearningPage({
   onRefreshMath,
   onBack
 }) {
-  const answeredCount = mathProblems.filter((problem) => String(mathAnswers[problem.id] || '').trim() !== '').length;
-  const correctCount = mathProblems.filter((problem) => String(mathAnswers[problem.id] || '').trim() !== '' && Number(mathAnswers[problem.id]) === problem.answer).length;
-  const allMathAnswered = answeredCount === mathProblems.length;
+  const currentMathMeta = MATH_TABS.find((tab) => tab.id === activeMathTab) || MATH_TABS[0];
+  const visibleMathProblems = mathProblems.filter((problem) => problem.mathTab === currentMathMeta.id);
+  const answeredCount = visibleMathProblems.filter((problem) => String(mathAnswers[problem.id] || '').trim() !== '').length;
+  const correctCount = visibleMathProblems.filter((problem) => String(mathAnswers[problem.id] || '').trim() !== '' && Number(mathAnswers[problem.id]) === problem.answer).length;
+  const allMathAnswered = answeredCount === visibleMathProblems.length;
+  const mathChecked = Boolean(mathCheckedTabs[currentMathMeta.id]);
 
   return (
     <section className="learning-shell">
@@ -619,11 +630,11 @@ function LearningPage({
           <div className="learning-card-head">
             <div>
               <p className="demo-card-kicker">加减法练习</p>
-              <h3>两位数加法 + 两位数减一位数</h3>
-              <p className="demo-copy">每次生成 12 题，先自己填写答案，再统一检查。</p>
+              <h3>{currentMathMeta.label}练习</h3>
+              <p className="demo-copy">加法和减法分开练习，每个 tab 6 题，先自己填写答案，再统一检查。</p>
             </div>
             <div className="learning-actions">
-              <button type="button" className="demo-action secondary" onClick={onCheckMath} disabled={!allMathAnswered}>
+              <button type="button" className="demo-action secondary" onClick={() => onCheckMath(currentMathMeta.id)} disabled={!allMathAnswered}>
                 检查答案
               </button>
               <button type="button" className="demo-action" onClick={onRefreshMath}>
@@ -632,13 +643,26 @@ function LearningPage({
             </div>
           </div>
 
+          <div className="demo-tabs task-tabs" role="tablist" aria-label="加减法类型">
+            {MATH_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`demo-tab${activeMathTab === tab.id ? ' active' : ''}`}
+                onClick={() => onMathTabChange(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <div className="learning-summary">
-            <strong>已作答 {answeredCount}/{mathProblems.length} 题</strong>
-            <span>{mathChecked ? `检查完成，答对 ${correctCount}/${mathProblems.length} 题` : allMathAnswered ? '填写完成后点击“检查答案”统一校验' : '请先完成全部 12 题，再检查答案'}</span>
+            <strong>已作答 {answeredCount}/{visibleMathProblems.length} 题</strong>
+            <span>{mathChecked ? `检查完成，答对 ${correctCount}/${visibleMathProblems.length} 题` : allMathAnswered ? '填写完成后点击“检查答案”统一校验' : `请先完成全部 ${visibleMathProblems.length} 题，再检查答案`}</span>
           </div>
 
           <div className="learning-math-grid">
-            {mathProblems.map((problem, index) => {
+            {visibleMathProblems.map((problem, index) => {
               const currentAnswer = String(mathAnswers[problem.id] || '').trim();
               const hasValue = currentAnswer !== '';
               const isCorrect = mathChecked && hasValue && Number(currentAnswer) === problem.answer;
@@ -992,11 +1016,15 @@ function App() {
   const [authToken, setAuthTokenState] = useState(() => getAuthToken());
   const [currentView, setCurrentView] = useState('home');
   const [activeLearningTab, setActiveLearningTab] = useState('加减法');
+  const [activeMathTab, setActiveMathTab] = useState(MATH_TABS[0].id);
   const [pinyinPractice, setPinyinPractice] = useState(() => createPinyinPracticeSet());
   const [englishPractice, setEnglishPractice] = useState(() => createEnglishPracticeSet());
   const [mathProblems, setMathProblems] = useState(initialMathPractice.problems);
   const [mathAnswers, setMathAnswers] = useState(initialMathPractice.answers);
-  const [mathChecked, setMathChecked] = useState(false);
+  const [mathCheckedTabs, setMathCheckedTabs] = useState(() => ({
+    addition: false,
+    subtraction: false
+  }));
   const [learningPetVisible, setLearningPetVisible] = useState(false);
   const [learningSadVisible, setLearningSadVisible] = useState(false);
   const [state, setState] = useState(null);
@@ -1456,7 +1484,11 @@ function App() {
     const nextProblems = createLearningProblems();
     setMathProblems(nextProblems);
     setMathAnswers(createEmptyAnswers(nextProblems));
-    setMathChecked(false);
+    setMathCheckedTabs({
+      addition: false,
+      subtraction: false
+    });
+    setActiveMathTab(MATH_TABS[0].id);
     setLearningPetVisible(false);
     setLearningSadVisible(false);
   }
@@ -1471,19 +1503,24 @@ function App() {
 
   function handleMathAnswerChange(problemId, value) {
     setMathAnswers((current) => ({ ...current, [problemId]: value }));
+    const currentProblem = mathProblems.find((problem) => problem.id === problemId);
+    if (currentProblem?.mathTab) {
+      setMathCheckedTabs((current) => ({ ...current, [currentProblem.mathTab]: false }));
+    }
   }
 
-  function handleCheckMath() {
-    const allAnswered = mathProblems.every((problem) => String(mathAnswers[problem.id] || '').trim() !== '');
+  function handleCheckMath(mathTab) {
+    const visibleMathProblems = mathProblems.filter((problem) => problem.mathTab === mathTab);
+    const allAnswered = visibleMathProblems.every((problem) => String(mathAnswers[problem.id] || '').trim() !== '');
     if (!allAnswered) {
-      setMathChecked(false);
+      setMathCheckedTabs((current) => ({ ...current, [mathTab]: false }));
       setLearningPetVisible(false);
       setLearningSadVisible(false);
       return;
     }
 
-    setMathChecked(true);
-    const allCorrect = mathProblems.every((problem) => Number(mathAnswers[problem.id]) === problem.answer);
+    setMathCheckedTabs((current) => ({ ...current, [mathTab]: true }));
+    const allCorrect = visibleMathProblems.every((problem) => Number(mathAnswers[problem.id]) === problem.answer);
     if (allAnswered && allCorrect) {
       setLearningSadVisible(false);
       setLearningPetVisible(true);
@@ -1827,6 +1864,8 @@ function App() {
           <LearningPage
             activeTab={activeLearningTab}
             onTabChange={setActiveLearningTab}
+            activeMathTab={activeMathTab}
+            onMathTabChange={setActiveMathTab}
             pinyinPractice={pinyinPractice}
             onRefreshPinyin={handleRefreshPinyinPractice}
             englishPractice={englishPractice}
@@ -1834,7 +1873,7 @@ function App() {
             onSpeakText={speakLearningText}
             mathProblems={mathProblems}
             mathAnswers={mathAnswers}
-            mathChecked={mathChecked}
+            mathCheckedTabs={mathCheckedTabs}
             learningPetVisible={learningPetVisible}
             learningSadVisible={learningSadVisible}
             learningPetImagePath={displayPetImagePath}
