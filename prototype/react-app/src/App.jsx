@@ -393,8 +393,59 @@ function createPinyinPracticeSet() {
     { word: '云', pinyin: 'yún', speak: 'yun2', category: '前鼻音' },
     { word: '星', pinyin: 'xīng', speak: 'xing1', category: '后鼻音' }
   ];
-  const initials = ['b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'zh', 'ch', 'sh', 'r', 'z', 'c', 's', 'y', 'w'];
-  const finals = ['a', 'o', 'e', 'i', 'u', 'ai', 'ei', 'ao', 'ou', 'an', 'en', 'ang', 'eng', 'ong', 'ia', 'ie', 'iao', 'iu', 'ian', 'ing', 'ua', 'uo', 'uai', 'ui', 'uan', 'un'];
+  const initials = [
+    { label: 'b', speak: 'bo' },
+    { label: 'p', speak: 'po' },
+    { label: 'm', speak: 'mo' },
+    { label: 'f', speak: 'fo' },
+    { label: 'd', speak: 'de' },
+    { label: 't', speak: 'te' },
+    { label: 'n', speak: 'ne' },
+    { label: 'l', speak: 'le' },
+    { label: 'g', speak: 'ge' },
+    { label: 'k', speak: 'ke' },
+    { label: 'h', speak: 'he' },
+    { label: 'j', speak: 'ji' },
+    { label: 'q', speak: 'qi' },
+    { label: 'x', speak: 'xi' },
+    { label: 'zh', speak: 'zhi' },
+    { label: 'ch', speak: 'chi' },
+    { label: 'sh', speak: 'shi' },
+    { label: 'r', speak: 'ri' },
+    { label: 'z', speak: 'zi' },
+    { label: 'c', speak: 'ci' },
+    { label: 's', speak: 'si' },
+    { label: 'y', speak: 'yi' },
+    { label: 'w', speak: 'wu' }
+  ];
+  const finals = [
+    { label: 'a', speak: 'a' },
+    { label: 'o', speak: 'o' },
+    { label: 'e', speak: 'e' },
+    { label: 'i', speak: 'yi' },
+    { label: 'u', speak: 'wu' },
+    { label: 'ai', speak: 'ai' },
+    { label: 'ei', speak: 'ei' },
+    { label: 'ao', speak: 'ao' },
+    { label: 'ou', speak: 'ou' },
+    { label: 'an', speak: 'an' },
+    { label: 'en', speak: 'en' },
+    { label: 'ang', speak: 'ang' },
+    { label: 'eng', speak: 'eng' },
+    { label: 'ong', speak: 'ong' },
+    { label: 'ia', speak: 'ya' },
+    { label: 'ie', speak: 'ye' },
+    { label: 'iao', speak: 'yao' },
+    { label: 'iu', speak: 'you' },
+    { label: 'ian', speak: 'yan' },
+    { label: 'ing', speak: 'ying' },
+    { label: 'ua', speak: 'wa' },
+    { label: 'uo', speak: 'wo' },
+    { label: 'uai', speak: 'wai' },
+    { label: 'ui', speak: 'wei' },
+    { label: 'uan', speak: 'wan' },
+    { label: 'un', speak: 'wen' }
+  ];
 
   return {
     matching: syllables.sort(() => Math.random() - 0.5).slice(0, 6),
@@ -606,8 +657,8 @@ function LearningPage({
               <strong>本轮声母</strong>
               <div className="learning-chip-row">
                 {pinyinPractice.initials.map((item) => (
-                  <button key={item} type="button" className="learning-chip learning-chip-button" onClick={() => onSpeakText(item, 'zh-CN')}>
-                    {item}
+                  <button key={item.label} type="button" className="learning-chip learning-chip-button" onClick={() => onSpeakText(item.speak, 'zh-CN')}>
+                    {item.label}
                   </button>
                 ))}
               </div>
@@ -617,8 +668,8 @@ function LearningPage({
               <strong>本轮韵母</strong>
               <div className="learning-chip-row">
                 {pinyinPractice.finals.map((item) => (
-                  <button key={item} type="button" className="learning-chip learning-chip-button" onClick={() => onSpeakText(item, 'zh-CN')}>
-                    {item}
+                  <button key={item.label} type="button" className="learning-chip learning-chip-button" onClick={() => onSpeakText(item.speak, 'zh-CN')}>
+                    {item.label}
                   </button>
                 ))}
               </div>
