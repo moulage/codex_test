@@ -339,7 +339,7 @@ function createUniqueMathProblems(count, buildProblem) {
 }
 
 function createLearningProblems() {
-  const additionProblems = createUniqueMathProblems(6, (index, createdAt) => {
+  const additionProblems = createUniqueMathProblems(12, (index, createdAt) => {
     const left = Math.floor(Math.random() * 80) + 10;
     const right = Math.floor(Math.random() * (99 - left)) + 1;
     return {
@@ -351,7 +351,7 @@ function createLearningProblems() {
     };
   });
 
-  const subtractionProblems = createUniqueMathProblems(6, (index, createdAt) => {
+  const subtractionProblems = createUniqueMathProblems(12, (index, createdAt) => {
     const left = Math.floor(Math.random() * 90) + 10;
     const right = Math.floor(Math.random() * 9) + 1;
     return {
@@ -682,7 +682,7 @@ function LearningPage({
             <div>
               <p className="demo-card-kicker">加减法练习</p>
               <h3>{currentMathMeta.label}练习</h3>
-              <p className="demo-copy">加法和减法分开练习，每个 tab 6 题，先自己填写答案，再统一检查。</p>
+              <p className="demo-copy">加法和减法分开练习，每个 tab 12 题，各自完成后单独检查。</p>
             </div>
             <div className="learning-actions">
               <button type="button" className="demo-action secondary" onClick={() => onCheckMath(currentMathMeta.id)} disabled={!allMathAnswered}>
