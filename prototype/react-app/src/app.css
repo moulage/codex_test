@@ -239,8 +239,83 @@ select {
 }
 
 .learning-shell {
+  position: relative;
   display: grid;
   gap: 24px;
+}
+
+.learning-sad-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.learning-sad-face-emoji {
+  font-size: clamp(88px, 16vw, 180px);
+  line-height: 1;
+  filter: drop-shadow(0 18px 26px rgba(29, 43, 63, 0.18));
+  animation: learningSadPulse 5s ease-in-out forwards;
+}
+
+.learning-pet-runner {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 180px;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3;
+}
+
+.learning-pet-track {
+  position: absolute;
+  left: -180px;
+  top: 18px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  animation: learningPetRun 10s linear forwards;
+}
+
+.learning-pet-sprite {
+  width: 120px;
+  height: auto;
+  filter: drop-shadow(0 16px 22px rgba(29, 43, 63, 0.18));
+  animation: learningPetBounce 0.7s ease-in-out infinite;
+}
+
+.learning-pet-bubble {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #345168;
+  font-weight: 800;
+  box-shadow: 0 10px 20px rgba(29, 43, 63, 0.12);
+  white-space: nowrap;
+}
+
+.learning-pet-dust {
+  position: absolute;
+  bottom: 8px;
+  font-size: 18px;
+  opacity: 0;
+  animation: learningPetDust 0.8s ease-out infinite;
+}
+
+.learning-pet-dust.dust-a {
+  left: -12px;
+}
+
+.learning-pet-dust.dust-b {
+  left: 18px;
+  animation-delay: 0.18s;
+}
+
+.learning-pet-dust.dust-c {
+  left: 46px;
+  animation-delay: 0.34s;
 }
 
 .learning-topbar,
@@ -1883,6 +1958,57 @@ select {
   100% {
     opacity: 0;
     transform: translate3d(var(--dx), var(--dy), 0) scale(0.08);
+  }
+}
+
+@keyframes learningPetRun {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(100vw + 260px));
+  }
+}
+
+@keyframes learningPetBounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(-3deg);
+  }
+}
+
+@keyframes learningPetDust {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-24px, 10px, 0) scale(1.1);
+  }
+}
+
+@keyframes learningSadPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.88);
   }
 }
 

@@ -313,23 +313,44 @@ function createBlankUser(defaultPetCode = '') {
   };
 }
 
+function createUniqueMathProblems(count, buildProblem) {
+  const expressions = new Set();
+  const problems = [];
+  const createdAt = Date.now();
+  let attempts = 0;
+  const maxAttempts = count * 50;
+
+  while (problems.length < count && attempts < maxAttempts) {
+    const problem = buildProblem(problems.length, createdAt);
+    attempts += 1;
+    if (expressions.has(problem.expression)) {
+      continue;
+    }
+
+    expressions.add(problem.expression);
+    problems.push(problem);
+  }
+
+  return problems;
+}
+
 function createLearningProblems() {
-  const additionProblems = Array.from({ length: 6 }, (_, index) => {
+  const additionProblems = createUniqueMathProblems(6, (index, createdAt) => {
     const left = Math.floor(Math.random() * 80) + 10;
     const right = Math.floor(Math.random() * (99 - left)) + 1;
     return {
-      id: `addition-${Date.now()}-${index}`,
+      id: `addition-${createdAt}-${index}`,
       type: '两位数加法',
       expression: `${left} + ${right} = ?`,
       answer: left + right
     };
   });
 
-  const subtractionProblems = Array.from({ length: 6 }, (_, index) => {
+  const subtractionProblems = createUniqueMathProblems(6, (index, createdAt) => {
     const left = Math.floor(Math.random() * 90) + 10;
     const right = Math.floor(Math.random() * 9) + 1;
     return {
-      id: `subtraction-${Date.now()}-${index}`,
+      id: `subtraction-${createdAt}-${index}`,
       type: '两位数减一位数',
       expression: `${left} - ${right} = ?`,
       answer: left - right
@@ -456,6 +477,32 @@ function RewardOverlay({ items, fireworks }) {
   );
 }
 
+function LearningPetRunner({ visible, petImagePath, petName }) {
+  if (!visible || !petImagePath) return null;
+
+  return (
+    <div className="learning-pet-runner" aria-hidden="true">
+      <div className="learning-pet-track">
+        <span className="learning-pet-bubble">{petName || '宠物伙伴'} 来玩啦</span>
+        <img className="learning-pet-sprite" src={petImagePath} alt={petName || '宠物伙伴'} />
+        <span className="learning-pet-dust dust-a">✨</span>
+        <span className="learning-pet-dust dust-b">⭐</span>
+        <span className="learning-pet-dust dust-c">💨</span>
+      </div>
+    </div>
+  );
+}
+
+function LearningSadFace({ visible }) {
+  if (!visible) return null;
+
+  return (
+    <div className="learning-sad-face" aria-hidden="true">
+      <div className="learning-sad-face-emoji">😭</div>
+    </div>
+  );
+}
+
 function LearningPage({
   activeTab,
   onTabChange,
@@ -467,6 +514,10 @@ function LearningPage({
   mathProblems,
   mathAnswers,
   mathChecked,
+  learningPetVisible,
+  learningSadVisible,
+  learningPetImagePath,
+  learningPetName,
   onMathAnswerChange,
   onCheckMath,
   onRefreshMath,
@@ -474,9 +525,16 @@ function LearningPage({
 }) {
   const answeredCount = mathProblems.filter((problem) => String(mathAnswers[problem.id] || '').trim() !== '').length;
   const correctCount = mathProblems.filter((problem) => String(mathAnswers[problem.id] || '').trim() !== '' && Number(mathAnswers[problem.id]) === problem.answer).length;
+  const allMathAnswered = answeredCount === mathProblems.length;
 
   return (
     <section className="learning-shell">
+      <LearningSadFace visible={learningSadVisible} />
+      <LearningPetRunner
+        visible={learningPetVisible}
+        petImagePath={learningPetImagePath}
+        petName={learningPetName}
+      />
       <header className="learning-topbar">
         <div>
           <p className="demo-card-kicker">学习乐园</p>
@@ -565,7 +623,7 @@ function LearningPage({
               <p className="demo-copy">每次生成 12 题，先自己填写答案，再统一检查。</p>
             </div>
             <div className="learning-actions">
-              <button type="button" className="demo-action secondary" onClick={onCheckMath}>
+              <button type="button" className="demo-action secondary" onClick={onCheckMath} disabled={!allMathAnswered}>
                 检查答案
               </button>
               <button type="button" className="demo-action" onClick={onRefreshMath}>
@@ -576,7 +634,7 @@ function LearningPage({
 
           <div className="learning-summary">
             <strong>已作答 {answeredCount}/{mathProblems.length} 题</strong>
-            <span>{mathChecked ? `检查完成，答对 ${correctCount}/${mathProblems.length} 题` : '填写完成后点击“检查答案”统一校验'}</span>
+            <span>{mathChecked ? `检查完成，答对 ${correctCount}/${mathProblems.length} 题` : allMathAnswered ? '填写完成后点击“检查答案”统一校验' : '请先完成全部 12 题，再检查答案'}</span>
           </div>
 
           <div className="learning-math-grid">
@@ -939,6 +997,8 @@ function App() {
   const [mathProblems, setMathProblems] = useState(initialMathPractice.problems);
   const [mathAnswers, setMathAnswers] = useState(initialMathPractice.answers);
   const [mathChecked, setMathChecked] = useState(false);
+  const [learningPetVisible, setLearningPetVisible] = useState(false);
+  const [learningSadVisible, setLearningSadVisible] = useState(false);
   const [state, setState] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [previewPeriod, setPreviewPeriod] = useState('');
@@ -1246,6 +1306,22 @@ function App() {
     );
   }, [parentConfig]);
 
+  useEffect(() => {
+    if (!learningPetVisible) return undefined;
+    const timer = window.setTimeout(() => {
+      setLearningPetVisible(false);
+    }, 10000);
+    return () => window.clearTimeout(timer);
+  }, [learningPetVisible]);
+
+  useEffect(() => {
+    if (!learningSadVisible) return undefined;
+    const timer = window.setTimeout(() => {
+      setLearningSadVisible(false);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [learningSadVisible]);
+
   useEffect(() => () => {
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(() => {});
@@ -1381,6 +1457,8 @@ function App() {
     setMathProblems(nextProblems);
     setMathAnswers(createEmptyAnswers(nextProblems));
     setMathChecked(false);
+    setLearningPetVisible(false);
+    setLearningSadVisible(false);
   }
 
   function handleRefreshPinyinPractice() {
@@ -1396,7 +1474,23 @@ function App() {
   }
 
   function handleCheckMath() {
+    const allAnswered = mathProblems.every((problem) => String(mathAnswers[problem.id] || '').trim() !== '');
+    if (!allAnswered) {
+      setMathChecked(false);
+      setLearningPetVisible(false);
+      setLearningSadVisible(false);
+      return;
+    }
+
     setMathChecked(true);
+    const allCorrect = mathProblems.every((problem) => Number(mathAnswers[problem.id]) === problem.answer);
+    if (allAnswered && allCorrect) {
+      setLearningSadVisible(false);
+      setLearningPetVisible(true);
+    } else {
+      setLearningPetVisible(false);
+      setLearningSadVisible(true);
+    }
   }
 
   async function handleCompleteTask(task) {
@@ -1741,6 +1835,10 @@ function App() {
             mathProblems={mathProblems}
             mathAnswers={mathAnswers}
             mathChecked={mathChecked}
+            learningPetVisible={learningPetVisible}
+            learningSadVisible={learningSadVisible}
+            learningPetImagePath={displayPetImagePath}
+            learningPetName={displayPetNickname}
             onMathAnswerChange={handleMathAnswerChange}
             onCheckMath={handleCheckMath}
             onRefreshMath={handleRefreshMathProblems}
